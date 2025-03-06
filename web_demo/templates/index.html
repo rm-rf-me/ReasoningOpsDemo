@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>告警处理系统</title>
+    <!-- 引入 Element UI 样式 -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div id="app">
+        <el-container>
+            <!-- 头部 -->
+            <el-header>
+                <div class="header-content">
+                    <div class="logo">
+                        <i class="el-icon-warning"></i>
+                        <h2>告警推理系统</h2>
+                    </div>
+                    <el-button 
+                        type="primary" 
+                        @click="processNextAlarm" 
+                        :loading="processing"
+                        size="medium">
+                        [[ buttonText ]]
+                    </el-button>
+                </div>
+            </el-header>
+            
+            <!-- 主体内容 -->
+            <el-main>
+                <el-row :gutter="20">
+                    <!-- 告警列表面板 -->
+                    <el-col :span="8">
+                        <el-card shadow="hover" class="alarm-panel">
+                            <div slot="header" class="panel-header">
+                                <span><i class="el-icon-bell"></i> 告警列表</span>
+                                <el-tag size="small">[[ allAlarms.length ]] 条</el-tag>
+                            </div>
+                            <div class="alarm-list-container">
+                                <el-collapse v-model="activeAlarms" :value="defaultActiveAlarms">
+                                    <template v-for="alarm in allAlarms">
+                                        <el-collapse-item :name="alarm.id">
+                                            <template slot="title">
+                                                <i v-if="alarm.is_current && started" 
+                                                   class="el-icon-warning current-pointer"></i>
+                                                <el-tag size="small" 
+                                                       :type="getStatusType(alarm)"
+                                                       effect="dark">
+                                                    #[[ alarm.id ]] - [[ getStatusText(alarm) ]]
+                                                </el-tag>
+                                            </template>
+                                            <div class="alarm-content">
+                                                <el-alert
+                                                    :title="alarm.alarm_msg"
+                                                    :type="getStatusType(alarm)"
+                                                    :closable="false"
+                                                    show-icon>
+                                                </el-alert>
+                                                <template v-if="alarm.conclusion">
+                                                    <div class="conclusion-box">
+                                                        <pre class="conclusion-content">[[ formatJSON(alarm.conclusion) ]]</pre>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </el-collapse-item>
+                                    </template>
+                                </el-collapse>
+                            </div>
+                        </el-card>
+                    </el-col>
+                    
+                    <!-- 未收敛告警面板 -->
+                    <el-col :span="8">
+                        <el-card shadow="hover">
+                            <div slot="header" class="panel-header">
+                                <span><i class="el-icon-warning-outline"></i> 未收敛告警</span>
+                                <el-tag type="warning" size="small">[[ notProcessedAlarms.length ]] 条</el-tag>
+                            </div>
+                            <div class="unconverged-alarms">
+                                <el-timeline>
+                                    <template v-for="alarm in notProcessedAlarms">
+                                        <el-timeline-item
+                                            :timestamp="'#' + alarm.id"
+                                            type="warning">
+                                            <div class="unconverged-alarm-card">
+                                                <span class="alarm-id">#[[ alarm.id ]]</span>
+                                                <p class="alarm-msg">[[ alarm.alarm_msg ]]</p>
+                                            </div>
+                                        </el-timeline-item>
+                                    </template>
+                                </el-timeline>
+                                <div v-if="!notProcessedAlarms.length" class="empty-content">
+                                    <el-empty description="暂无未收敛告警"></el-empty>
+                                </div>
+                            </div>
+                        </el-card>
+                    </el-col>
+                    
+                    <!-- 推理过程面板 -->
+                    <el-col :span="8">
+                        <el-card shadow="hover">
+                            <div slot="header" class="panel-header">
+                                <span><i class="el-icon-cpu"></i> 推理过程</span>
+                                <el-button v-if="reasoningText" 
+                                         type="text"
+                                         size="small"
+                                         @click="clearReasoningOutput">
+                                    <i class="el-icon-delete"></i> 清空
+                                </el-button>
+                            </div>
+                            <div class="reasoning-content">
+                                <el-input
+                                    type="textarea"
+                                    :value="reasoningText"
+                                    :rows="30"
+                                    readonly
+                                    resize="none"
+                                    class="reasoning-textarea">
+                                </el-input>
+                                <div v-if="!reasoningText" class="empty-content">
+                                    <el-empty description="暂无推理内容"></el-empty>
+                                </div>
+                            </div>
+                        </el-card>
+                    </el-col>
+                </el-row>
+            </el-main>
+        </el-container>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://unpkg.com/vue@2/dist/vue.js"></script>
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html> 
