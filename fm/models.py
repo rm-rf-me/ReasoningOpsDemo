@@ -23,7 +23,7 @@ class LLM(BaseModel):
     def __init__(self):
         super().__init__()
 
-    def query(self, prompt: str, model_name: str, temperature: float = 0.2, timeout: int = 120,
+    def query(self, prompt: str, model_name: str, temperature: float = 0, timeout: int = 120,
               strict_json: bool = False, properties: dict = {}) -> str:
         # print("LLM query use model:", model_name)
 

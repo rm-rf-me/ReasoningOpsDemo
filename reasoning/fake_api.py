@@ -1,6 +1,7 @@
 from fm.models import LLM
 import json
 import os
+import time
 
 
 class Singleton:
@@ -59,6 +60,47 @@ class DeviceAPI(Singleton):
         return res
 
 
+# class BARuleAPI(Singleton):
+#     def __init__(self):
+#         self.all_rules = []
+#         self._read_rules()
+
+#     def _read_rules(self):
+#         """读取预设的运维规则数据"""
+#         fake_file = os.path.join(os.path.dirname(__file__), 'ba_data.txt')
+#         try:
+#             with open(fake_file, 'r', encoding='utf-8') as f:
+#                 # 读取所有规则并格式化为JSON结构
+#                 rules_text = f.read().strip()
+#                 self.all_rules = [{
+#                     "rule_id": "R001",
+#                     "type": "冷冻单元故障处理",
+#                     "content": rules_text,
+#                     "keywords": ["冷冻单元", "故障", "备用", "启用"]
+#                 }]
+#         except Exception as e:
+#             print(f"Error reading BA rules: {e}")
+#             self.all_rules = []
+
+#     def query(self, description: str, max_retry: int = 3) -> str:
+#         llm = LLM()
+
+#         prompt = f"""
+#         你是一个专业的暖通系统运维专家。
+#         你需要根据描述的情况，从运维规则库中找出相关的规则内容。
+        
+#         运维规则库的内容如下（JSON格式）：
+#         {json.dumps(self.all_rules, ensure_ascii=False, indent=2)}
+
+#         请根据以下描述查找相关规则：
+#         {description}
+
+#         请直接回复规则内容，如果没有找到相关规则，请回复"没有找到相关规则"。
+#         """
+#         res = llm.query(prompt, model_name="gpt-4o")
+
+#         return res
+
 class BARuleAPI(Singleton):
     def __init__(self):
         self.all_rules = []
@@ -96,9 +138,19 @@ class BARuleAPI(Singleton):
 
         请直接回复规则内容，如果没有找到相关规则，请回复"没有找到相关规则"。
         """
-        res = llm.query(prompt, model_name="gpt-4o")
-
-        return res
+        retry_delay = 1
+        for retry in range(max_retry):
+            try:
+                res = llm.query(prompt, model_name="gpt-4o")
+                return res
+            except Exception as e:
+                if retry < max_retry - 1:
+                    print(f"网络请求失败，重试第{retry + 1}次，延迟{retry_delay}秒: {e}")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                else:
+                    print(f"多次重试后仍失败: {e}")
+                    return "没有找到相关规则"
 
 
 class AlarmInputAPI(Singleton):
