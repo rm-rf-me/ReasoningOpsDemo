@@ -1,45 +1,53 @@
 const app = new Vue({
     el: '#app',
-    delimiters: ['[[', ']]'],  // 避免与Flask模板冲突
+    delimiters: ['[[', ']]'],
     data: {
         socket: null,
         activeAlarms: [],
         allAlarms: [],
         notProcessedAlarms: [],
-        reasoningText: '',  // 改用单个文本字符串
+        reasoningText: '',
         processing: false,
         currentAlarmId: null,
-        started: false
+        started: false,
+        tempReasoningText: '' // 新增临时变量存储逐步更新的文本
     },
     methods: {
+        // 其他代码不变
         initSocket() {
             console.log('Initializing socket connection...');
             this.socket = io();
-            
             // 监听初始状态
             this.socket.on('init_state', (data) => {
                 console.log('Received init state:', data);
                 this.allAlarms = data.all_alarms;
                 this.notProcessedAlarms = data.not_processed_alarms;
             });
-            
             // 监听推理完成
             this.socket.on('reasoning_complete', (data) => {
                 console.log('Reasoning complete:', data);
                 this.processing = false;
                 this.allAlarms = data.all_alarms;
                 this.notProcessedAlarms = data.not_processed_alarms;
-                
-                // 显示推理过程
-                this.reasoningText = data.reasoning_text;
-                
+                // 逐步更新推理文本
+                this.tempReasoningText = '';
+                const reasoningText = data.reasoning_text;
+                const typingSpeed = 50; // 打字速度，单位毫秒
+                let index = 0;
+                const typingInterval = setInterval(() => {
+                    this.tempReasoningText += reasoningText[index];
+                    this.reasoningText = this.tempReasoningText;
+                    index++;
+                    if (index >= reasoningText.length) {
+                        clearInterval(typingInterval);
+                    }
+                }, typingSpeed);
                 // 确保当前处理的告警保持展开
                 const currentAlarm = this.allAlarms.find(alarm => alarm.is_current);
-                if (currentAlarm && !this.activeAlarms.includes(currentAlarm.id)) {
+                if (currentAlarm &&!this.activeAlarms.includes(currentAlarm.id)) {
                     this.activeAlarms.push(currentAlarm.id);
                 }
             });
-
             // 监听错误
             this.socket.on('reasoning_error', (data) => {
                 console.error('Reasoning error:', data);

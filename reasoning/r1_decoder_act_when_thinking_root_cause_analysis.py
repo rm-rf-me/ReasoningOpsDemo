@@ -105,30 +105,24 @@ class StreamingDecoder:
         return token
 
     def get_stream_iterator(self):
-        """获取流式迭代器"""
         if not self.stream:
-            print("Warning: No stream available")  # 添加警告日志
+            print("Warning: No stream available")
             return None
-
         for completion in self.stream:
             tokens = []
             delta = completion.choices[0].delta
             if hasattr(delta, "reasoning_content"):
-                # 处理推理内容
                 reasoning_content = delta.reasoning_content
                 if reasoning_content is not None:
                     if not self.thinking:
                         tokens.append("<think>\n")
-
                         self.thinking = True
                     tokens.append(reasoning_content)
             else:
-                # 处理答案内容
                 if self.thinking:
                     tokens.append("</think>\n\n<answer>\n")
                     self.thinking = False
                     self.answer_opened = True
-
                 content = getattr(delta, "content", None)
                 if content is not None:
                     if not self.answer_opened:
@@ -136,6 +130,8 @@ class StreamingDecoder:
                         self.answer_opened = True
                     tokens.append(content)
             for token in tokens:
+                if self.output_callback:
+                    self.output_callback(token)
                 yield token
         yield "</answer>"
 
