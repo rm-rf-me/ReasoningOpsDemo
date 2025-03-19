@@ -25,21 +25,21 @@ const app = new Vue({
             });
             // 监听推理完成
             this.socket.on('reasoning_complete', (data) => {
-                console.log('Reasoning complete:', data);
-                this.processing = false;
+                console.log('推理完成:', data);
+                this.processing = false;  // 将 processing 状态设置为 false，表示任务完成
                 this.allAlarms = data.all_alarms;
                 this.notProcessedAlarms = data.not_processed_alarms;
-                // 逐步更新推理文本
+                // 逐步打字效果处理
                 this.tempReasoningText = '';
                 const reasoningText = data.reasoning_text;
-                const typingSpeed = 50; // 打字速度，单位毫秒
+                const typingSpeed = 20; // 调整打字速度
                 let index = 0;
                 const typingInterval = setInterval(() => {
                     this.tempReasoningText += reasoningText[index];
                     this.reasoningText = this.tempReasoningText;
                     index++;
                     if (index >= reasoningText.length) {
-                        clearInterval(typingInterval);
+                        clearInterval(typingInterval); // 当所有文本显示完毕后停止
                     }
                 }, typingSpeed);
                 // 确保当前处理的告警保持展开
