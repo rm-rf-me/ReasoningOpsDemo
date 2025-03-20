@@ -73,7 +73,7 @@ class DeviceAPI(Singleton):
 
     def _read_device_data(self):
         """读取预设的设备信息数据"""
-        fake_file = os.path.join(os.path.dirname(__file__), 'ba_data.txt')
+        fake_file = os.path.join(os.path.dirname(__file__), 'device_data.txt')
         with open(fake_file, 'r', encoding='utf-8') as f:
             # 读取所有设备并格式化为JSON结构
             device_text = f.read().strip()
@@ -158,29 +158,63 @@ class BARuleAPI(Singleton):
 
 class AlarmInputAPI(Singleton):
     def __init__(self):
-        self.alarm_input = None
+        """初始化告警输入API"""
+        self.alarm_input = []
         self.current_index = 0
-        self._read_alarm_input()
-        self._iterator = None  # 添加迭代器属性
+        self._iterator = None
+        self._read_alarm_data()
 
-    def _read_alarm_input(self):
+    def _read_alarm_data(self):
         """读取预设的告警数据"""
         fake_file = os.path.join(os.path.dirname(__file__), 'alarm_data.txt')
+        print(f"Reading alarm data from: {fake_file}")
+        
         with open(fake_file, 'r', encoding='utf-8') as f:
-            # 读取所有行并过滤空行
-            self.alarm_input = [line.strip() for line in f.readlines() if line.strip()]
+            # 跳过标题行
+            next(f)
+            for line in f:
+                # 分割每一行数据
+                fields = line.strip().split('\t')
+                if len(fields) >= 17:  # 确保有足够的字段
+                    alarm_data = {
+                        'level': fields[0],                    # 告警等级
+                        'alarm_msg': fields[1],                # 告警内容
+                        'alarm_time': fields[2],               # 告警时间
+                        'id': fields[3],                       # 告警编号
+                        'location_full': fields[4],            # 告警位置全名
+                        'location': fields[5],                 # 告警位置
+                        'subject': fields[6],                  # 告警主体
+                        'subject_short': fields[7],            # 告警主体短名称
+                        'device_type': fields[8],              # 设备类型
+                        'generate_type': fields[9],            # 产生类型
+                        'alarm_point': fields[10],             # 告警点位
+                        'alarm_rule': fields[11],              # 告警规则
+                        'alarm_threshold': fields[12],         # 告警阈值
+                        'alarm_value': fields[13],             # 告警值
+                        'recovery_reason': fields[14],         # 恢复原因
+                        'alarm_type': fields[15],              # 告警类型
+                        'alarm_template': fields[16],          # 告警模板
+                        'is_processed': False,                 # 处理状态
+                        'is_current': False,                   # 是否为当前告警
+                        'conclusion': []                       # 收敛结论
+                    }
+                    self.alarm_input.append(alarm_data)
+        
+        print(f"Loaded {len(self.alarm_input)} alarms")
+        if len(self.alarm_input) > 0:
+            print("Sample alarm:", self.alarm_input[0])
 
     def get_all_alarms(self):
         """获取所有告警"""
-        return self.alarm_input.copy()
+        alarms = self.alarm_input.copy()
+        print(f"Returning {len(alarms)} alarms from API")
+        if len(alarms) > 0:
+            print("Sample alarm from API:", alarms[0])
+        return alarms
 
     def wait_new(self):
-        """模拟告警输入的迭代器"""
-        # 如果迭代器不存在，创建一个新的
-        if self._iterator is None:
-            if not self.alarm_input:
-                self._read_alarm_input()
-            
+        """等待新告警"""
+        if not self._iterator:
             def alarm_generator():
                 while self.current_index < len(self.alarm_input):
                     yield self.alarm_input[self.current_index]

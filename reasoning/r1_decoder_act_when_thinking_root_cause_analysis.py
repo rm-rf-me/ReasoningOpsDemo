@@ -6,12 +6,18 @@ from dotenv import load_dotenv
 import logging
 import os
 import json
+from tenacity import retry, stop_after_attempt, wait_exponential
+import httpx
+import traceback
 
 from .fake_api import get_instance, GraphAPI, DeviceAPI, BARuleAPI
 
 from .prompts import root_cause_analysis_prompt
 
 load_dotenv()
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 def exec_special_calc(action):
@@ -47,31 +53,58 @@ class StreamingDecoder:
         return self.decode(prompt)
 
     def __init__(self):
+        logger.info("Initializing StreamingDecoder")
         self.thinking = False
         self.answer_opened = False
         self.stream = None
         self.output_callback = None
-        self.client = OpenAI(
-            api_key=os.environ['DEEPSEEK_API_KEY'],
-            base_url=os.environ['DEEPSEEK_BASE_URL']
-        )
-        self.stream_creator = partial(self.client.chat.completions.create,
-                                    model=os.environ['DEEPSEEK_R1_MODEL_NAME'],
-                                    stream=True)
+        try:
+            self.client = OpenAI(
+                api_key=os.environ['DEEPSEEK_API_KEY'],
+                base_url=os.environ['DEEPSEEK_BASE_URL']
+            )
+            logger.info("OpenAI client initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize OpenAI client: {e}")
+            raise
+        self.stream_creator = retry(
+            stop=stop_after_attempt(3),
+            wait=wait_exponential(multiplier=1, min=4, max=10),
+            retry=self._should_retry
+        )(self.create_stream_request)
         self.stream_iterator = None
         self.continue_thinking_prompt = '''You think as above response shows. Please continue your thinking and you 
         don't have to repeat what you have done or thought before. If you think the above thinking process is enough 
         to answer the user's request, please give your answer directly instead of thinking.'''
 
-    def create_stream(self, messages):
-        """创建流式对话"""
-        print("Creating stream")  # 添加日志
-        self.close_stream()
+    def _should_retry(self, exception):
+        """判断是否应该重试请求"""
+        return isinstance(exception, (httpx.ReadError, httpx.ConnectError, ConnectionError))
+
+    def create_stream_request(self, messages):
+        """创建流式请求"""
         try:
+            return self.client.chat.completions.create(
+                model=os.environ['DEEPSEEK_R1_MODEL_NAME'],
+                messages=messages,
+                stream=True,
+                temperature=0.1,
+                timeout=30  # 增加超时时间
+            )
+        except Exception as e:
+            print(f"Error creating stream request: {str(e)}")
+            traceback.print_exc()
+            raise
+
+    def create_stream(self, messages):
+        logger.info(f"Creating new stream with messages: {messages}")
+        try:
+            self.close_stream()
             self.stream = self.stream_creator(messages=messages)
             self.stream_iterator = self.get_stream_iterator()
+            logger.info("Stream created successfully")
         except Exception as e:
-            print(f"Error creating stream: {e}")  # 添加错误日志
+            logger.error(f"Error creating stream: {e}")
             raise
 
     def close_stream(self):
@@ -98,63 +131,113 @@ class StreamingDecoder:
 
     @awt.act_when_thinking
     def decode(self, prompt):
-        token = next(self.stream_iterator)
-        # 添加回调处理
-        if self.output_callback and token:  # 只在有实际内容时发送
-            self.output_callback(token)
-        return token
+        try:
+            token = next(self.stream_iterator)
+            if token:
+                # logger.debug(f"Generated token: {token}")
+                # 添加回调处理
+                if self.output_callback and token:  # 只在有实际内容时发送
+                    self.output_callback(token)
+            return token
+        except StopIteration:
+            logger.info("Stream iteration completed")
+            return None  # 正常结束返回 None
+        except Exception as e:
+            logger.error(f"Error during decoding: {e}", exc_info=True)
+            raise
 
     def get_stream_iterator(self):
-        if not self.stream:
-            print("Warning: No stream available")
-            return None
-        for completion in self.stream:
-            tokens = []
-            delta = completion.choices[0].delta
-            if hasattr(delta, "reasoning_content"):
-                reasoning_content = delta.reasoning_content
-                if reasoning_content is not None:
-                    if not self.thinking:
-                        tokens.append("<think>\n")
-                        self.thinking = True
-                    tokens.append(reasoning_content)
-            else:
-                if self.thinking:
-                    tokens.append("</think>\n\n<answer>\n")
-                    self.thinking = False
-                    self.answer_opened = True
-                content = getattr(delta, "content", None)
-                if content is not None:
-                    if not self.answer_opened:
-                        tokens.append("<answer>")
-                        self.answer_opened = True
-                    tokens.append(content)
-            for token in tokens:
-                if self.output_callback:
-                    self.output_callback(token)
-                yield token
-        yield "</answer>"
-
-
-def decode_main_loop(sequence: str, r1_decoder, output_callback=None) -> str:
-    while True:
+        logger.debug("Starting stream iterator")
         try:
+            for completion in self.stream:
+                try:
+                    tokens = []
+                    delta = completion.choices[0].delta
+                    if hasattr(delta, "reasoning_content"):
+                        reasoning_content = delta.reasoning_content
+                        if reasoning_content is not None:
+                            if not self.thinking:
+                                tokens.append("<think>")
+                                self.thinking = True
+                            tokens.append(reasoning_content)
+                    else:
+                        if self.thinking:
+                            tokens.append("</think><answer>")
+                            self.thinking = False
+                            self.answer_opened = True
+                        
+                        content = getattr(delta, "content", None)
+                        if content is not None:
+                            if not self.answer_opened:
+                                tokens.append("<answer>")
+                                self.answer_opened = True
+                            tokens.append(content)
+                    for token in tokens:
+                        yield token
+                except Exception as e:
+                    print(f"Error processing stream chunk: {str(e)}")
+                    traceback.print_exc()
+                    continue
+            # 正常结束时，确保关闭流
+            self.close_stream()
+            yield "</answer>"
+        except Exception as e:
+            logger.error(f"Error in stream iterator: {e}", exc_info=True)
+            self.close_stream()  # 确保错误时也关闭流
+            raise
+
+
+def decode_main_loop(sequence, r1_decoder, output_callback=None):
+    """主解码循环"""
+    logger.debug("Starting decode main loop")
+    try:
+        while True:
             token = sequence @ r1_decoder
+            if token is None:  # 流结束
+                logger.debug("Decode loop completed normally")
+                break
             sequence += token
-            print(token, end='')
-            if output_callback:  # 在这里调用回调
-                output_callback(token)
-        except StopIteration:
-            print("\ndecode finished!\n")
-            break
-    return sequence
+            
+            # 检查是否完成
+            if sequence.endswith("</answer>"):
+                logger.debug("Found end token, breaking decode loop")
+                break
+                
+        return sequence
+        
+    except Exception as e:
+        logger.error(f"Error in decode main loop: {e}", exc_info=True)
+        raise
 
-
-def decode_sequence(sequence: str, output_callback=None) -> str:
-    r1_decoder = StreamingDecoder()
-    r1_decoder.output_callback = output_callback  # 设置回调函数
-    sequence = decode_main_loop(sequence, r1_decoder, output_callback)
-    return sequence
+def decode_sequence(sequence, output_callback=None):
+    """解码序列"""
+    logger.info("Starting sequence decoding")
+    r1_decoder = None
+    try:
+        r1_decoder = StreamingDecoder()
+        if output_callback:
+            r1_decoder.output_callback = output_callback
+            
+        sequence = decode_main_loop(sequence, r1_decoder, output_callback)
+        logger.info("Sequence decoding completed")
+        
+        # 解析结果
+        try:
+            result = parse_result(sequence)
+            logger.debug(f"Parsed result: {result}")
+            return result, sequence
+        except Exception as e:
+            logger.error(f"Error parsing result: {e}", exc_info=True)
+            # 如果解析失败，返回空结果和原始序列
+            return [], sequence
+            
+    except Exception as e:
+        logger.error(f"Error in decode_sequence: {e}", exc_info=True)
+        raise
+    finally:
+        # 确保关闭流
+        if r1_decoder:
+            r1_decoder.close_stream()
 
 
 def format_prompt(alarm_info: dict) -> str:
@@ -178,61 +261,68 @@ def format_prompt(alarm_info: dict) -> str:
     return prompt
 
 
-def parse_result(result: str) -> list:
-    """
-    解析推理结果，返回推理结论列表
-    Args:
-        result: 大模型返回的推理结果字符串
-    Returns:
-        list: 包含推理结论的列表，每个结论是一个字典，格式如下：
-        [{
-            "convergence_type": "历史收敛" 或 "未来收敛",
-            "related_alarm_id": "相关告警ID或None",
-            "reasoning": "推理过程",
-            "conclusion": "推理结论"
-        }]
-    """
-    # 提取<answer>标签中的内容
-    answer_start = result.find("<answer>") + len("<answer>")
-    answer_end = result.find("</answer>")
-    if answer_start == -1 or answer_end == -1:
-        return []
-
-    answer_content = result[answer_start:answer_end].strip()
-    if answer_content.startswith("```json") and answer_content.endswith("```"):
-        answer_content = answer_content[7:-3]
+def parse_result(result_text):
+    """解析结果文本"""
+    logger.debug(f"Parsing result text: {result_text}")
     try:
-        # 解析JSON格式的结果
-        conclusions = json.loads(answer_content)
-        return conclusions
-    except json.JSONDecodeError:
-        return []
+        # 提取 <answer> 标签中的内容
+        answer_start = result_text.find("<answer>") + len("<answer>")
+        answer_end = result_text.find("</answer>")
+        if answer_start == -1 or answer_end == -1:
+            raise ValueError("Could not find answer tags in result")
+            
+        answer_text = result_text[answer_start:answer_end].strip()
+        logger.debug(f"Extracted answer text: {answer_text[:100]}...")
+        
+        # 处理 ```json 标记
+        if answer_text.startswith("```json"):
+            answer_text = answer_text[7:]  # 移除 ```json
+        if answer_text.endswith("```"):
+            answer_text = answer_text[:-3]  # 移除结尾的 ```
+            
+        answer_text = answer_text.strip()
+        logger.debug(f"Cleaned JSON text: {answer_text[:100]}...")
+        
+        try:
+            # 尝试解析 JSON
+            result = json.loads(answer_text)
+            logger.debug(f"Successfully parsed JSON result: {result}")
+            return result
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON: {e}")
+            logger.error(f"Problematic JSON text: {answer_text}")
+            raise
+            
+    except Exception as e:
+        logger.error(f"Error parsing result: {e}", exc_info=True)
+        raise
 
 
-def process_alarm(alarm_info: dict, output_callback=None) -> tuple:
-    """
-    Args:
-        alarm_info: {
-            "current_alarm": str,  # 当前告警信息
-            "history_alarms": list  # 历史未收敛告警列表
-        }
-    
-    Returns:
-        dict: {
-            "convergence_type": str,  # "历史收敛" 或 "未来收敛"
-            "related_alarms": list,  # 相关的告警ID列表
-            "reasoning_process": str,  # 推理过程
-            "conclusion": str  # 推理结论
-        }
-    """
-    sequence = format_prompt(alarm_info)
-    result = decode_sequence(sequence, output_callback=output_callback)
-
-    parsered_result = parse_result(result)
-
-    print(f"*****\n解析结果：{parsered_result}\n*****")
-
-    return parsered_result, result
+def process_alarm(alarm_info, output_callback=None):
+    """处理告警"""
+    logger.info(f"Processing alarm: {alarm_info}")
+    try:
+        # 构建提示词
+        sequence = format_prompt(alarm_info)
+        
+        # 解码序列
+        result, sequence_text = decode_sequence(sequence, output_callback=output_callback)
+        logger.debug(f"Decode result: {result}")
+        
+        # 如果结果为空，返回默认值
+        if not result:
+            result = [{
+                "convergence_type": "未知",
+                "related_alarm_id": None,
+                "reasoning": "解析结果失败",
+                "conclusion": "无法得出结论"
+            }]
+            
+        return result, sequence_text
+        
+    except Exception as e:
+        logger.error(f"Error processing alarm: {e}", exc_info=True)
+        raise
 
 
 def test_openairequest():

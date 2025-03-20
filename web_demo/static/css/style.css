@@ -3,29 +3,56 @@ body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     background-color: #f0f2f5;
+    font-size: 16px;  /* 增加基础字体大小 */
 }
 
-/* 头部样式 */
+/* 头部样式优化 */
 .el-header {
-    background-color: white;
+    background-color: #fff;
     box-shadow: 0 2px 8px rgba(0,0,0,.1);
     position: relative;
-    z-index: 1;
+    z-index: 10;
+    padding: 0;
+    height: 64px !important;  /* 强制设置高度 */
 }
 
-.header-content {
-    max-width: 1400px;
-    margin: 0 auto;
-    height: 60px;
+.header-wrapper {
+    height: 100%;
+    width: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    padding: 0 20px;
+    box-sizing: border-box;
 }
 
+.header-left {
+    display: flex;
+    align-items: center;
+    width: 300px;  /* 固定宽度 */
+}
+
+.header-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    padding: 0 20px;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 300px;  /* 固定宽度 */
+    justify-content: flex-end;
+}
+
+/* Logo样式 */
 .logo {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
+    white-space: nowrap;  /* 防止标题换行 */
 }
 
 .logo i {
@@ -36,17 +63,64 @@ body {
 .logo h2 {
     margin: 0;
     color: #303133;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+/* 主菜单样式 */
+.main-menu {
+    border-bottom: none !important;
+    background: transparent;
+}
+
+.main-menu .el-menu-item {
+    font-size: 14px;
+    height: 64px;
+    line-height: 64px;
+}
+
+/* 操作按钮组样式 */
+.action-buttons {
+    display: flex;
+    align-items: center;
+}
+
+.action-buttons .el-button {
+    padding: 8px 15px;
+    height: 32px;
+    line-height: 1;
+}
+
+/* 处理按钮样式 */
+.el-button--success {
+    height: 32px;
+    padding: 8px 15px;
+    line-height: 1;
+}
+
+/* 移除之前可能冲突的样式 */
+.el-header {
+    background-color: #fff !important;
+    margin-bottom: 0 !important;
+}
+
+/* 分割线样式 */
+.el-divider--vertical {
+    height: 24px;
+    margin: 0 16px;
 }
 
 /* 主体内容样式 */
 .el-main {
     padding: 20px;
     background-color: #f0f2f5;
+    height: calc(100vh - 64px);
+    overflow-y: auto;
 }
 
 /* 卡片样式 */
 .el-card {
-    height: calc(100vh - 140px);
+    height: calc(100vh - 104px);
     display: flex;
     flex-direction: column;
 }
@@ -55,10 +129,15 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    font-size: 16px;  /* 增大面板标题字体 */
 }
 
 .panel-header i {
     margin-right: 5px;
+}
+
+.panel-header .el-tag {
+    font-size: 14px !important;  /* 增大标签字体 */
 }
 
 /* 告警列表样式 */
@@ -69,21 +148,88 @@ body {
 
 .alarm-content {
     padding: 10px 0;
+    font-size: 15px;  /* 增大告警内容字体 */
 }
 
 .conclusion-box {
-    margin-top: 10px;
-    padding: 10px;
-    background-color: #f8f9fa;
+    margin-top: 15px;
+    background: #fff;
     border-radius: 4px;
 }
 
-.conclusion-content {
+.conclusion-item {
+    background: #fff;
+    border-radius: 4px;
+    padding: 8px;
+    margin-bottom: 8px;
+    border: 1px solid #EBEEF5;
+}
+
+.conclusion-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #EBEEF5;
+}
+
+.conclusion-header .el-tag {
+    font-size: 12px;
+    padding: 0 6px;
+    height: 20px;
+    line-height: 18px;
+}
+
+.related-alarm {
+    color: #909399;
+    font-size: 12px;
+    line-height: 20px;
+}
+
+.text-right {
+    text-align: right;
+}
+
+/* 描述列表样式优化 */
+.conclusion-descriptions {
     margin: 0;
-    white-space: pre-wrap;
-    font-family: "Söhne Mono", Monaco, "Andale Mono", "Ubuntu Mono", monospace;
-    font-size: 13px;
-    color: #2c3e50;
+}
+
+.conclusion-descriptions .el-descriptions__body {
+    padding: 0;
+}
+
+.conclusion-descriptions .el-descriptions-item__label {
+    width: 60px;
+    color: #606266;
+    font-weight: normal;
+    background: #F5F7FA;
+    font-size: 12px;
+    padding: 4px 8px;
+    line-height: 1.4;
+}
+
+.conclusion-descriptions .el-descriptions-item__content {
+    font-size: 12px;
+    line-height: 1.4;
+    padding: 4px 8px;
+    color: #606266;
+}
+
+.highlight-conclusion {
+    color: #409EFF;
+    font-weight: 500;
+}
+
+/* 调整卡片内容样式 */
+.reasoning-card.conclusion .el-card__body {
+    padding: 8px;
+}
+
+/* 移除多余的边距 */
+.reasoning-card.conclusion .el-card__body > :last-child {
+    margin-bottom: 0;
 }
 
 /* 未收敛告警样式 */
@@ -118,6 +264,11 @@ body {
     line-height: 1.6;
     background-color: #f8f9fa;
     color: #2c3e50;
+}
+
+.reasoning-textarea textarea {
+    font-size: 15px !important;  /* 增大推理过程字体 */
+    line-height: 1.6 !important;
 }
 
 /* 空状态样式 */
@@ -295,12 +446,6 @@ button {
 }
 
 /* 覆盖 Element UI 的一些样式 */
-.el-header {
-    background-color: #f5f7fa;
-    padding: 20px;
-    margin-bottom: 20px;
-}
-
 .el-main {
     padding: 20px;
 }
@@ -437,9 +582,8 @@ button {
 
 /* 推理卡片样式 */
 .reasoning-card {
-    margin-bottom: 10px;
-    border-radius: 4px;
-    box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
+    margin-bottom: 0 !important;
+    height: auto !important;  /* 让卡片高度自适应内容 */
 }
 
 .step-content {
@@ -463,6 +607,7 @@ button {
 
 .el-timeline-item__content {
     width: 100%;
+    font-size: 15px;  /* 增大时间线内容字体 */
 }
 
 /* 卡片内容样式 */
@@ -492,13 +637,13 @@ button {
     top: 8px;
     right: 12px;
     color: #909399;
-    font-size: 12px;
+    font-size: 14px;  /* 增大告警ID字体 */
 }
 
 .unconverged-alarm-card .alarm-msg {
     margin: 0;
-    font-size: 13px;
-    line-height: 1.4;
+    font-size: 15px;  /* 增大未收敛告警字体 */
+    line-height: 1.5;
     color: #303133;
     word-break: break-word;
 }
@@ -529,6 +674,9 @@ button {
     padding: 0 10px;
     background-color: #fff;
     position: relative;  /* 确保标题固定 */
+    font-size: 15px !important;  /* 增大折叠面板标题字体 */
+    height: 48px !important;  /* 增加折叠面板标题高度 */
+    line-height: 48px !important;
 }
 
 .el-collapse-item__wrap {
@@ -561,4 +709,511 @@ button {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+}
+
+/* 侧边栏样式 */
+.el-aside {
+    background-color: #304156;
+    height: 100vh;
+    transition: width 0.3s;
+    overflow-x: hidden;
+}
+
+.aside-logo {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #2b3648;
+    color: #fff;
+    font-size: 18px;  /* 增大logo字体 */
+    font-weight: 600;
+    gap: 10px;
+    padding: 0 16px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.aside-logo:hover {
+    background: #263445;
+}
+
+.aside-logo i {
+    font-size: 20px;
+    color: #409EFF;
+}
+
+.aside-menu {
+    border-right: none;
+}
+
+.aside-menu:not(.el-menu--collapse) {
+    width: 240px;
+}
+
+.aside-menu.el-menu--collapse {
+    width: 64px;
+}
+
+.aside-menu .el-menu-item {
+    height: 56px;  /* 增加菜单项高度 */
+    line-height: 56px;
+    font-size: 16px;  /* 增大菜单字体 */
+}
+
+.aside-menu .el-menu-item i {
+    margin-right: 10px;
+    font-size: 18px;
+    width: 24px;
+    text-align: center;
+}
+
+/* 收起时的图标样式 */
+.el-menu--collapse .el-menu-item i {
+    margin: 0;
+    width: 24px;
+    text-align: center;
+}
+
+/* 主容器样式调整 */
+.el-container {
+    height: 100vh;
+}
+
+/* 调整头部样式 */
+.header-wrapper {
+    padding: 0 20px;
+}
+
+.header-left h2 {
+    margin: 0;
+    font-size: 20px;  /* 增大标题字体 */
+    color: #303133;
+    font-weight: 600;
+}
+
+/* 内容区域调整 */
+.el-main {
+    background-color: #f0f2f5;
+    padding: 20px;
+    height: calc(100vh - 64px);
+    overflow-y: auto;
+}
+
+/* 卡片高度调整 */
+.el-card {
+    height: calc(100vh - 104px);
+}
+
+/* 告警标题样式 */
+.el-alert__title {
+    font-size: 15px !important;  /* 增大告警标题字体 */
+}
+
+/* 空状态提示文字 */
+.el-empty__description {
+    font-size: 15px !important;  /* 增大空状态提示字体 */
+}
+
+/* 调整图标大小 */
+.el-icon-monitor,
+.el-icon-warning-outline,
+.el-icon-share,
+.el-icon-connection,
+.el-icon-set-up {
+    font-size: 20px !important;  /* 增大图标尺寸 */
+}
+
+/* 调整标签内边距 */
+.el-tag {
+    padding: 0 10px !important;  /* 增加标签内边距 */
+    height: 26px !important;  /* 增加标签高度 */
+    line-height: 24px !important;
+}
+
+/* 表格工具栏样式 */
+.table-toolbar {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+.filter-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+}
+
+.filter-form .el-form-item {
+    margin-bottom: 0;
+    margin-right: 0;
+}
+
+.filter-form .el-select {
+    width: 140px;
+}
+
+/* 告警详情样式 */
+.alarm-detail {
+    padding: 20px;
+    background: #f8f9fa;
+}
+
+.section-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 20px 0 15px;
+    color: #303133;
+}
+
+.conclusion-section {
+    margin-top: 20px;
+    border-top: 1px solid #EBEEF5;
+    padding-top: 20px;
+}
+
+/* 表格内容样式优化 */
+.el-table {
+    margin-top: 10px;
+}
+
+.el-table .el-table__expand-icon {
+    font-size: 16px;
+}
+
+/* 描述列表样式优化 */
+.el-descriptions {
+    margin-bottom: 20px;
+}
+
+.el-descriptions__label {
+    font-weight: 600;
+}
+
+/* 调整卡片内边距 */
+.alarm-panel .el-card__body {
+    padding: 0 20px 20px;
+}
+
+/* 告警消息样式 */
+.alarm-message {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.alarm-msg {
+    color: #303133;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.alarm-details {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.device-type {
+    color: #606266;
+}
+
+.alarm-point {
+    color: #409EFF;
+}
+
+.alarm-value .el-tag {
+    height: 20px;
+    line-height: 18px;
+}
+
+/* 恢复时间样式 */
+.recovery-time {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #67c23a;
+}
+
+.recovery-time .el-tag {
+    margin-right: 5px;
+}
+
+/* 表格样式优化 */
+.el-table {
+    font-size: 14px;
+}
+
+.el-table th {
+    background-color: #f5f7fa;
+    color: #606266;
+    font-weight: 600;
+}
+
+.el-table td {
+    padding: 8px 0;
+}
+
+/* 描述列表样式优化 */
+.el-descriptions {
+    margin: 0 0 20px;
+}
+
+.el-descriptions__label {
+    width: 100px;
+}
+
+/* 收敛分析部分样式 */
+.convergence-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #EBEEF5;
+}
+
+.convergence-content {
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.step-time {
+    font-size: 12px;
+    color: #909399;
+    margin-top: 4px;
+}
+
+.convergence-detail {
+    margin-top: 8px;
+    color: #606266;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.convergence-tag {
+    margin-left: 8px;
+}
+
+.status-column {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+}
+
+/* 调整卡片布局 */
+.alarm-panel {
+    margin-bottom: 20px;
+}
+
+.detail-section {
+    margin-bottom: 20px;
+}
+
+.section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #303133;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-title i {
+    color: #409EFF;
+}
+
+/* 状态列样式 */
+.status-column {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+}
+
+/* 序号标签样式 */
+.el-table .el-tag.el-tag--plain {
+    background-color: #f5f7fa;
+    border-color: #e4e7ed;
+    color: #606266;
+    font-weight: 600;
+    font-family: monospace;
+}
+
+/* 推理面板样式 */
+.reasoning-panel {
+    height: calc(100vh - 104px);
+    display: flex;
+    flex-direction: column;
+}
+
+.current-alarm-info {
+    background: #f8f9fa;
+    border-radius: 4px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.current-alarm-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;  /* 允许在需要时换行 */
+}
+
+.alarm-id {
+    color: #409EFF;
+    font-family: monospace;
+    font-weight: 600;
+    font-size: 11px;  /* 减小字体大小 */
+    white-space: nowrap;  /* 防止换行 */
+    max-width: 200px;  /* 限制最大宽度 */
+    display: inline-block;
+}
+
+.alarm-content {
+    color: #606266;
+    line-height: 1.4;
+}
+
+.reasoning-content {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 8px;
+    display: flex;
+    flex-direction: column;
+}
+
+.reasoning-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;  /* 减小卡片间距 */
+}
+
+.reasoning-card {
+    margin-bottom: 0 !important;
+}
+
+.reasoning-card .el-card__header {
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.reasoning-card .el-card__header i {
+    margin-right: 8px;
+    color: #409EFF;
+}
+
+.card-content {
+    padding: 12px;  /* 减小内容区域内边距 */
+    color: #606266;
+    line-height: 1.5;
+    font-size: 13px;
+    white-space: pre-line;  /* 保留换行符但合并空白 */
+}
+
+/* 不同类型卡片的样式 */
+.reasoning-card.think {
+    border-left: 3px solid #409EFF;
+}
+
+.reasoning-card.action {
+    border-left: 3px solid #67C23A;
+}
+
+.reasoning-card.result {
+    border-left: 3px solid #E6A23C;
+}
+
+.reasoning-card.conclusion {
+    border-left: 3px solid #F56C6C;
+}
+
+/* 历史告警卡片样式 */
+.history-card {
+    border-left: 3px solid #909399;
+}
+
+.history-alarm-item {
+    display: flex;
+    align-items: center;  /* 水平对齐 */
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.history-alarm-item .alarm-id {
+    flex-shrink: 0;  /* 防止ID被压缩 */
+}
+
+.history-alarm-item .alarm-msg {
+    flex: 1;  /* 占据剩余空间 */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.highlight-id {
+    color: #409EFF;
+    font-weight: 600;
+}
+
+.highlight-status {
+    font-weight: 600;
+}
+
+.highlight-status:matches(:contains("成功")) {
+    color: #67C23A;
+}
+
+.highlight-status:matches(:contains("失败")) {
+    color: #F56C6C;
+}
+
+/* 历史告警卡片样式 */
+.history-alarms {
+    background: #fff;
+    border-radius: 4px;
+    padding: 12px;
+    border: 1px solid #EBEEF5;
+}
+
+.history-header {
+    font-size: 14px;
+    color: #606266;
+    margin-bottom: 12px;
+    font-weight: 500;
+}
+
+.history-alarm-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.history-alarm-item .alarm-id {
+    color: #409EFF;
+    font-family: monospace;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.history-alarm-item .alarm-msg {
+    color: #606266;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+/* 调整时间线样式 */
+.el-timeline-item__node--normal {
+    width: 8px;
+    height: 8px;
+}
+
+.el-timeline-item__wrapper {
+    padding-left: 24px;
 } 
