@@ -44,6 +44,7 @@ const app = new Vue({
         reasoningCards: [],  // 存储推理卡片
         currentAlarm: null,  // 当前处理的告警
         historyAlarms: [],   // 历史未收敛告警
+        userInput: '',  // 用户输入的消息
     },
     methods: {
         // 其他代码不变
@@ -253,13 +254,11 @@ const app = new Vue({
             for (let line of lines) {
                 // 匹配历史告警部分
                 if (line.includes('历史未收敛告警：')) {
-                    if (currentCard) {
-                        cards.push(currentCard);
-                    }
-                    currentCard = {
+                    // 添加历史告警卡片
+                    cards.push({
                         type: 'history',
-                        content: this.parseHistoryAlarms(line)
-                    };
+                        content: line
+                    });
                     continue;
                 }
                 
@@ -335,8 +334,8 @@ const app = new Vue({
         
         parseHistoryAlarms(text) {
             // 解析历史未收敛告警
+            const alarmPattern = /#(\d+):\s*(.+?)(?=\s*#|$)/g;
             const alarms = [];
-            const alarmPattern = /#(\w+):\s*(.+?)(?=\s*#|$)/g;
             let match;
             
             while ((match = alarmPattern.exec(text)) !== null) {
@@ -347,7 +346,6 @@ const app = new Vue({
             }
             
             this.historyAlarms = alarms;
-            return alarms;
         },
         
         getCardIcon(type) {
@@ -355,7 +353,9 @@ const app = new Vue({
                 'think': 'el-icon-chat-dot-square',
                 'action': 'el-icon-coordinate',
                 'result': 'el-icon-document-checked',
-                'conclusion': 'el-icon-success'
+                'conclusion': 'el-icon-success',
+                'user': 'el-icon-user',  // 添加用户消息的图标
+                'assistant': 'el-icon-service'  // 添加助手消息的图标
             };
             return icons[type] || 'el-icon-info';
         },
@@ -365,26 +365,31 @@ const app = new Vue({
                 'think': '推理思考',
                 'action': '执行动作',
                 'result': '执行结果',
-                'conclusion': '最终结论'
+                'conclusion': '最终结论',
+                'user': '用户消息',  // 添加用户消息的标题
+                'assistant': '助手回复'  // 添加助手消息的标题
             };
             return titles[type] || '未知类型';
         },
         
         formatContent(content) {
             // 如果是历史告警卡片
-            if (Array.isArray(content) && content.length > 0 && 'alarm_msg' in content[0]) {
+            if (content.includes('历史未收敛告警：')) {
+                const alarms = content.replace('历史未收敛告警：', '').trim().split(' ');
                 return `
                     <div class="history-alarms">
-                        <div class="history-header">历史未收敛告警</div>
                         <el-timeline>
-                            ${content.map(alarm => `
-                                <el-timeline-item type="warning">
-                                    <div class="history-alarm-item">
-                                        <span class="alarm-id">#${alarm.id}</span>
-                                        <div class="alarm-msg">${alarm.alarm_msg}</div>
-                                    </div>
-                                </el-timeline-item>
-                            `).join('')}
+                            ${alarms.map(alarm => {
+                                const [id, ...msg] = alarm.split(':');
+                                return `
+                                    <el-timeline-item type="warning">
+                                        <div class="history-alarm-item">
+                                            <span class="alarm-id">${id}</span>
+                                            <div class="alarm-msg">${msg.join(':').trim()}</div>
+                                        </div>
+                                    </el-timeline-item>
+                                `;
+                            }).join('')}
                         </el-timeline>
                     </div>
                 `;
@@ -423,6 +428,31 @@ const app = new Vue({
                 .replace(/\n/g, '<br>')
                 .replace(/(#\d+)/g, '<span class="highlight-id">$1</span>')
                 .replace(/(成功|失败)/g, '<span class="highlight-status">$1</span>');
+        },
+        
+        sendMessage() {
+            if (!this.userInput.trim() || this.processing) return;
+            
+            // 添加用户消息到推理卡片
+            this.reasoningCards.push({
+                type: 'user',  // 使用新的卡片类型
+                content: this.userInput
+            });
+            
+            // 发送消息到后端
+            this.socket.emit('user_message', {
+                message: this.userInput,
+                current_alarm: this.currentAlarm
+            });
+            
+            // 清空输入框
+            this.userInput = '';
+            
+            // 滚动到底部
+            this.$nextTick(() => {
+                const container = document.querySelector('.reasoning-cards');
+                container.scrollTop = container.scrollHeight;
+            });
         }
     },
     computed: {

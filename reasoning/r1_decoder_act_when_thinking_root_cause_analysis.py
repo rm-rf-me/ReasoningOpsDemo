@@ -12,7 +12,7 @@ import traceback
 
 from .fake_api import get_instance, GraphAPI, DeviceAPI, BARuleAPI
 
-from .prompts import root_cause_analysis_prompt
+from .prompts import root_cause_analysis_prompt_mock
 
 load_dotenv()
 
@@ -251,7 +251,7 @@ def format_prompt(alarm_info: dict) -> str:
     print("Current alarm:", current_alarm)
     print("History alarms:", history_alarms)
 
-    prompt = root_cause_analysis_prompt.format(
+    prompt = root_cause_analysis_prompt_mock.format(
         current_alarm=current_alarm,
         history_alarms=history_alarms,
     )

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>数据中心智能运维系统</title>
+    <title>智能运维系统-告警收敛</title>
     <!-- 引入 Element UI 样式 -->
     <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
@@ -13,7 +13,7 @@
             <el-aside :width="isCollapse ? '64px' : '240px'">
                 <div class="aside-logo" @click="toggleCollapse">
                     <i class="el-icon-monitor"></i>
-                    <span v-show="!isCollapse">智能运维系统</span>
+                    <span v-show="!isCollapse">数据中心智能运维系统</span>
                 </div>
                 <el-menu
                     :default-active="activeMenu"
@@ -48,7 +48,7 @@
                 <el-header>
                     <div class="header-wrapper">
                         <div class="header-left">
-                            <h2>数据中心智能运维系统</h2>
+                            <h2>智能运维系统-告警收敛</h2>
                         </div>
                         <div class="header-right">
                             <el-button-group class="action-buttons">
@@ -276,7 +276,7 @@
                         <el-col :span="6">
                             <el-card shadow="hover" class="reasoning-panel">
                                 <div slot="header" class="panel-header">
-                                    <span><i class="el-icon-cpu"></i> 推理过程</span>
+                                    <span><i class="el-icon-cpu"></i> 智能运维大模型</span>
                                     <el-button v-if="reasoningText" 
                                              type="text"
                                              size="small"
@@ -307,6 +307,27 @@
                                             </div>
                                             <div class="card-content" v-html="formatContent(card.content)"></div>
                                         </el-card>
+                                    </div>
+                                    
+                                    <!-- 优化输入框布局 -->
+                                    <div class="reasoning-input">
+                                        <el-input
+                                            v-model="userInput"
+                                            type="textarea"
+                                            :autosize="{ minRows: 1, maxRows: 3 }"
+                                            placeholder="输入消息，按 Ctrl + Enter 发送"
+                                            :disabled="processing"
+                                            @keyup.enter.native.ctrl="sendMessage">
+                                        </el-input>
+                                        <el-button 
+                                            type="primary" 
+                                            size="medium"
+                                            icon="el-icon-s-promotion"
+                                            :loading="processing"
+                                            :disabled="!userInput.trim()"
+                                            @click="sendMessage">
+                                            发送
+                                        </el-button>
                                     </div>
                                 </div>
                             </el-card>

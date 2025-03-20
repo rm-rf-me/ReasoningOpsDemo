@@ -50,34 +50,54 @@ class HistoryWindows:
 
 class AlarmReasoningEnv:
     def __init__(self):
-        """初始化环境"""
         self.history_windows = HistoryWindows()
         self.alarm_input_api = AlarmInputAPI()
         self.current_alarm = None
-        self.reset()
+        self._load_all_alarms()
 
     def _load_all_alarms(self):
         """加载所有告警到 history_windows"""
-        alarms = self.alarm_input_api.get_all_alarms()
-        print(f"Loaded {len(alarms)} alarms")
-        if alarms:
-            print("Sample alarm:", alarms[0])
+        all_alarms = self.alarm_input_api.get_all_alarms()
+        print(f"Loading {len(all_alarms)} alarms into history windows")
         
-        # 直接设置 all_alarms 属性
-        self.history_windows.all_alarms = [{
-            **alarm,
-            'is_processed': False,
-            'is_current': False,
-            'conclusion': []
-        } for alarm in alarms]
+        # 将告警添加到 history_windows
+        for alarm in all_alarms:
+            self.history_windows.all_alarms.append({
+                **alarm,
+                'is_processed': False,
+                'is_current': False,
+                'conclusion': []
+            })
 
     def get_current_alarm(self):
-        """获取当前处理的告警"""
-        return next(
-            (alarm for alarm in self.history_windows.all_alarms 
-             if not alarm['is_processed']),
-            None
-        )
+        """获取当前告警"""
+        try:
+            # 获取下一个未处理的告警
+            self.current_alarm = next(
+                (alarm for alarm in self.history_windows.all_alarms 
+                 if not alarm['is_processed'] and not alarm['is_current']),
+                None
+            )
+            
+            if self.current_alarm:
+                self.current_alarm['is_current'] = True
+                print(f"Current alarm set to: {self.current_alarm['id']}")
+            else:
+                print("No more alarms to process")
+            
+            return self.current_alarm
+            
+        except Exception as e:
+            print(f"Error getting current alarm: {e}")
+            return None
+
+    def get_next_not_processed_alarm(self):
+        """获取下一个未处理的告警"""
+        # 按顺序获取第一个未处理的告警
+        for alarm in self.history_windows.all_alarms:
+            if not alarm['is_processed']:
+                return alarm
+        return None
 
     def get_history_alarms(self):
         """获取历史未收敛告警"""
@@ -85,28 +105,34 @@ class AlarmReasoningEnv:
         if not current_alarm:
             return []
         
+        # 获取当前告警之前的未收敛告警
         history_alarms = []
+        current_time = current_alarm['alarm_time']
+        
         for alarm in self.history_windows.all_alarms:
-            if (alarm['alarm_time'] < current_alarm['alarm_time'] and 
-                (not alarm.get('conclusion') or 
-                 (isinstance(alarm.get('conclusion'), list) and 
-                  len(alarm['conclusion']) > 0 and 
-                  alarm['conclusion'][0].get('convergence_type') == '未来收敛'))):
-                history_alarms.append(alarm)
+            # 只获取当前告警之前的告警
+            if alarm['alarm_time'] < current_time:
+                # 检查是否有未来收敛的结论
+                if alarm.get('conclusion') and any(c['convergence_type'] == '未来收敛' for c in alarm['conclusion']):
+                    history_alarms.append(alarm)
         
         return history_alarms
-
-    def get_next_not_processed_alarm(self):
-        """获取下一个未处理的告警"""
-        for alarm in self.history_windows.all_alarms:
-            if not alarm['is_processed']:
-                return alarm
-        return None
 
     def process_alarm(self, context, output_callback=None):
         """处理单个告警"""
         current_alarm = context['current_alarm']
         history_alarms = self.get_history_alarms()
+        
+        # 添加历史未收敛告警到输出
+        if history_alarms:
+            history_text = "历史未收敛告警：" + " ".join([
+                f"#{alarm['id']}: {alarm['alarm_msg']}" 
+                for alarm in history_alarms
+            ])
+            if output_callback:
+                output_callback(history_text + "\n\n")
+        
+        # 使用原有的 API
         context['history_alarms'] = history_alarms
         return reasoning_process_alarm(context, output_callback=output_callback)
 
@@ -114,19 +140,26 @@ class AlarmReasoningEnv:
         """更新告警状态"""
         current_alarm = self.get_next_not_processed_alarm()
         if current_alarm:
+            # 更新当前告警状态为已处理
             current_alarm['is_processed'] = True
+            # 移除 is_current 标记
             current_alarm.pop('is_current', None)
+            
+            # 添加推理结论
             current_alarm['conclusion'] = reasoning_result
+            
             return current_alarm
-
-    def reset(self):
-        """重置环境"""
-        self.alarm_input_api.reset()
-        self._load_all_alarms()
 
     def get_all_alarms(self):
         """获取所有告警"""
         return self.history_windows.all_alarms
+
+    def reset(self):
+        """重置环境状态"""
+        self.alarm_input_api.reset()
+        self.history_windows = HistoryWindows()
+        self.current_alarm = None
+        self._load_all_alarms()
 
 
 

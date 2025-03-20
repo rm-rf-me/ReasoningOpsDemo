@@ -1175,17 +1175,10 @@ button {
 
 /* 历史告警卡片样式 */
 .history-alarms {
-    background: #fff;
+    padding: 8px;
+    background: #fdf6ec;
     border-radius: 4px;
-    padding: 12px;
-    border: 1px solid #EBEEF5;
-}
-
-.history-header {
-    font-size: 14px;
-    color: #606266;
-    margin-bottom: 12px;
-    font-weight: 500;
+    margin-bottom: 8px;
 }
 
 .history-alarm-item {
@@ -1196,10 +1189,11 @@ button {
 }
 
 .history-alarm-item .alarm-id {
-    color: #409EFF;
+    color: #e6a23c;
     font-family: monospace;
+    font-weight: 600;
     font-size: 12px;
-    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .history-alarm-item .alarm-msg {
@@ -1208,7 +1202,7 @@ button {
     line-height: 1.4;
 }
 
-/* 调整时间线样式 */
+/* 时间线样式调整 */
 .el-timeline-item__node--normal {
     width: 8px;
     height: 8px;
@@ -1216,4 +1210,106 @@ button {
 
 .el-timeline-item__wrapper {
     padding-left: 24px;
+}
+
+/* 推理输入框样式优化 */
+.reasoning-input {
+    margin-top: 12px;
+    padding: 12px;
+    background: #fff;
+    border-radius: 4px;
+    border: 1px solid #EBEEF5;
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;  /* 确保按钮和输入框底部对齐 */
+}
+
+.reasoning-input .el-textarea {
+    flex: 1;
+    margin-bottom: 0;  /* 移除底部边距 */
+}
+
+.reasoning-input .el-textarea__inner {
+    resize: none;
+    font-size: 13px;
+    min-height: 32px !important;  /* 确保最小高度和按钮一致 */
+    line-height: 1.5;
+    padding: 5px 10px;  /* 调整内边距 */
+}
+
+.reasoning-input .el-button {
+    height: 32px;  /* 固定按钮高度 */
+    padding: 8px 15px;
+    margin: 0;  /* 移除按钮边距 */
+    align-self: flex-end;  /* 确保按钮在底部对齐 */
+}
+
+/* 调整推理内容区域布局 */
+.reasoning-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;  /* 确保内容区域填满容器 */
+}
+
+.reasoning-cards {
+    flex: 1;
+    overflow-y: auto;
+    margin-bottom: 12px;
+    padding-right: 4px;  /* 为滚动条预留空间 */
+}
+
+/* 美化滚动条 */
+.reasoning-cards::-webkit-scrollbar {
+    width: 6px;
+}
+
+.reasoning-cards::-webkit-scrollbar-thumb {
+    background: #E4E7ED;
+    border-radius: 3px;
+}
+
+.reasoning-cards::-webkit-scrollbar-track {
+    background: #F5F7FA;
+}
+
+/* 用户消息卡片样式 */
+.reasoning-card.user {
+    border-left: 3px solid #67C23A;  /* 用户消息使用绿色 */
+    background-color: #f0f9eb;  /* 浅绿色背景 */
+}
+
+.reasoning-card.assistant {
+    border-left: 3px solid #409EFF;  /* 助手消息使用蓝色 */
+    background-color: #ecf5ff;  /* 浅蓝色背景 */
+}
+
+/* 消息卡片通用样式优化 */
+.reasoning-card {
+    margin-bottom: 8px !important;
+}
+
+.reasoning-card .el-card__header {
+    padding: 8px 12px;  /* 减小头部内边距 */
+    border-bottom: 1px solid rgba(0,0,0,0.05);  /* 更柔和的分隔线 */
+}
+
+.reasoning-card .card-content {
+    padding: 8px 12px;  /* 减小内容区域内边距 */
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* 调整图标样式 */
+.reasoning-card .el-card__header i {
+    font-size: 14px;
+    width: 16px;
+    text-align: center;
+    margin-right: 6px;
+}
+
+/* 调整标题样式 */
+.reasoning-card .el-card__header {
+    font-size: 13px;
+    font-weight: 500;
+    color: #606266;
 } 
