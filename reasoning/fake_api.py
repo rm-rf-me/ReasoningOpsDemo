@@ -2,7 +2,7 @@ from fm.models import LLM
 import json
 import os
 import time
-
+import pandas as pd
 
 class Singleton:
     _instances = {}
@@ -24,22 +24,65 @@ class GraphAPI(Singleton):
         self.graph = None
 
     def read_graph(self, file_path):
-        pass
+        # 定义 XLSX 文件路径
+        xlsx_file = file_path
+        # 获取所有表名
+        sheet_names = pd.ExcelFile(xlsx_file, engine='openpyxl').sheet_names
+
+        # 遍历不同 sheet 表
+        for sheet_name in sheet_names:
+            df = pd.read_excel(xlsx_file, sheet_name=sheet_name, engine='openpyxl')
+            # 定义 CSV 文件路径，这里以 sheet 表名作为区分
+            csv_file = f'{sheet_name}.csv'
+            # 将数据保存为 CSV 文件
+            df.to_csv(csv_file, index=False)
 
     def _process_graph(self):
-        pass
+        self.read_graph('graph_data.xlsx')
+        csv_file='graph_data.csv'
+        df = pd.read_csv(csv_file)
 
-    def provide_prompt(self) -> str:
-        pass
+        # 将 DataFrame 转换为 JSON 数组
+        self.graph = df.to_json(orient='records', force_ascii=False, indent=4)
+
 
     def query(self, description: str, max_retry: int = 3) -> str:
-        # 参考DeviceAPI的实现，添加基于LLM的图查询逻辑
-        return "No answer"
+        llm = LLM()
+
+        prompt = f"""
+        你是一个专业的暖通系统运维专家。
+        你需要根据描述的情况，从图结构中找出相关的设备间的拓扑关系，其中图是由二元组表示。
+        图结构的内容如下（JSON格式）：
+        {self.graph}
+
+        请根据以下描述查找相关设备间的拓扑关系：
+        {description}
+
+        请直接回复设备间的拓扑关系，如果没有找到相关设备间的拓扑关系，请回复"没有找到相关拓扑关系"。
+        """
+        res = llm.query(prompt, model_name="gpt-4o")
+
+
+        return res
 
 
 class DeviceAPI(Singleton):
     def __init__(self):
         self.device_info = []
+
+
+    def _read_device_data(self):
+        """读取预设的设备信息数据"""
+        fake_file = os.path.join(os.path.dirname(__file__), 'ba_data.txt')
+        with open(fake_file, 'r', encoding='utf-8') as f:
+            # 读取所有设备并格式化为JSON结构
+            device_text = f.read().strip()
+            self.device_info = [{
+                "device_name_Chinese":"B2区_BA_开关阀门_2号V4开关阀",
+                "device_name": "B2-U2-V4",
+                "content": device_text
+            }]
+
 
     def query(self, description: str, max_retry: int = 3) -> str:
         llm = LLM()
@@ -60,46 +103,6 @@ class DeviceAPI(Singleton):
         return res
 
 
-# class BARuleAPI(Singleton):
-#     def __init__(self):
-#         self.all_rules = []
-#         self._read_rules()
-
-#     def _read_rules(self):
-#         """读取预设的运维规则数据"""
-#         fake_file = os.path.join(os.path.dirname(__file__), 'ba_data.txt')
-#         try:
-#             with open(fake_file, 'r', encoding='utf-8') as f:
-#                 # 读取所有规则并格式化为JSON结构
-#                 rules_text = f.read().strip()
-#                 self.all_rules = [{
-#                     "rule_id": "R001",
-#                     "type": "冷冻单元故障处理",
-#                     "content": rules_text,
-#                     "keywords": ["冷冻单元", "故障", "备用", "启用"]
-#                 }]
-#         except Exception as e:
-#             print(f"Error reading BA rules: {e}")
-#             self.all_rules = []
-
-#     def query(self, description: str, max_retry: int = 3) -> str:
-#         llm = LLM()
-
-#         prompt = f"""
-#         你是一个专业的暖通系统运维专家。
-#         你需要根据描述的情况，从运维规则库中找出相关的规则内容。
-        
-#         运维规则库的内容如下（JSON格式）：
-#         {json.dumps(self.all_rules, ensure_ascii=False, indent=2)}
-
-#         请根据以下描述查找相关规则：
-#         {description}
-
-#         请直接回复规则内容，如果没有找到相关规则，请回复"没有找到相关规则"。
-#         """
-#         res = llm.query(prompt, model_name="gpt-4o")
-
-#         return res
 
 class BARuleAPI(Singleton):
     def __init__(self):
