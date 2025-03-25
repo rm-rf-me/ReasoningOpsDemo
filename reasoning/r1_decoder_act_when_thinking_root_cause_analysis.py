@@ -5,6 +5,7 @@ from .act_when_thinking import ActWhenThinking
 from dotenv import load_dotenv
 import logging
 import os
+import time
 import json
 from tenacity import retry, stop_after_attempt, wait_exponential
 import httpx
@@ -38,7 +39,7 @@ def exec_special_calc(action):
             result = api.query(query)
         else:
             raise ValueError(f"Unknown API call: {action}")
-            
+
         return f"<result>\n{result}\n</result>\n\n"
     except Exception as e:
         return f"<result>\nError executing action: {action}, error: {e}\n</result>\n\n"
@@ -58,6 +59,7 @@ class StreamingDecoder:
         self.answer_opened = False
         self.stream = None
         self.output_callback = None
+        self.messages = None  # 添加 messages 属性
         try:
             self.client = OpenAI(
                 api_key=os.environ['DEEPSEEK_API_KEY'],
@@ -68,8 +70,8 @@ class StreamingDecoder:
             logger.error(f"Failed to initialize OpenAI client: {e}")
             raise
         self.stream_creator = retry(
-            stop=stop_after_attempt(3),
-            wait=wait_exponential(multiplier=1, min=4, max=10),
+            stop=stop_after_attempt(5),  # 增加重试次数
+            wait=wait_exponential(multiplier=1, min=4, max=20),  # 调整重试等待时间
             retry=self._should_retry
         )(self.create_stream_request)
         self.stream_iterator = None
@@ -88,15 +90,17 @@ class StreamingDecoder:
                 model=os.environ['DEEPSEEK_R1_MODEL_NAME'],
                 messages=messages,
                 stream=True,
-                temperature=0.1,
-                timeout=30  # 增加超时时间
-            )
+                temperature=0.2,
+                timeout=60,  # 增加超时时间
+                # headers={"Connection": "keep-alive"}  # 保持长连接
+        )
         except Exception as e:
             print(f"Error creating stream request: {str(e)}")
             traceback.print_exc()
             raise
 
     def create_stream(self, messages):
+        self.messages = messages  # 保存消息
         logger.info(f"Creating new stream with messages: {messages}")
         try:
             self.close_stream()
@@ -131,60 +135,92 @@ class StreamingDecoder:
 
     @awt.act_when_thinking
     def decode(self, prompt):
-        try:
-            token = next(self.stream_iterator)
-            if token:
-                # logger.debug(f"Generated token: {token}")
-                # 添加回调处理
-                if self.output_callback and token:  # 只在有实际内容时发送
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                if self.stream_iterator is None:  # 确保迭代器存在
+                    self.stream_iterator = self.get_stream_iterator()
+                    
+                token = next(self.stream_iterator)
+                if token and self.output_callback:
                     self.output_callback(token)
-            return token
-        except StopIteration:
-            logger.info("Stream iteration completed")
-            return None  # 正常结束返回 None
-        except Exception as e:
-            logger.error(f"Error during decoding: {e}", exc_info=True)
-            raise
+                return token
+                
+            except StopIteration:
+                logger.info("Stream iteration completed")
+                return None
+                
+            except (httpx.ReadError, httpx.ConnectError, ConnectionError, OSError) as e:
+                logger.error(f"Network error during decoding, retrying ({retry_count + 1}/{max_retries}): {e}")
+                retry_count += 1
+                if retry_count < max_retries:
+                    time.sleep(1)
+                    self.create_stream(self.messages)
+                    self.stream_iterator = self.get_stream_iterator()
+                else:
+                    logger.error("Max retries reached during decoding.")
+                    raise
+                    
+            except Exception as e:
+                logger.error(f"Error during decoding: {e}", exc_info=True)
+                raise
 
     def get_stream_iterator(self):
         logger.debug("Starting stream iterator")
-        try:
-            for completion in self.stream:
-                try:
-                    tokens = []
-                    delta = completion.choices[0].delta
-                    if hasattr(delta, "reasoning_content"):
-                        reasoning_content = delta.reasoning_content
-                        if reasoning_content is not None:
-                            if not self.thinking:
-                                tokens.append("<think>")
-                                self.thinking = True
-                            tokens.append(reasoning_content)
-                    else:
-                        if self.thinking:
-                            tokens.append("</think><answer>")
-                            self.thinking = False
-                            self.answer_opened = True
-                        
-                        content = getattr(delta, "content", None)
-                        if content is not None:
-                            if not self.answer_opened:
-                                tokens.append("<answer>")
+        max_retries = 3
+        retry_count = 0
+        while retry_count < max_retries:
+            try:
+                if self.stream is None:  # 确保流存在
+                    self.create_stream(self.messages)
+
+                for completion in self.stream:
+                    try:
+                        tokens = []
+                        delta = completion.choices[0].delta
+                        if hasattr(delta, "reasoning_content"):
+                            reasoning_content = delta.reasoning_content
+                            if reasoning_content is not None:
+                                if not self.thinking:
+                                    tokens.append("<think>")
+                                    self.thinking = True
+                                tokens.append(reasoning_content)
+                        else:
+                            if self.thinking:
+                                tokens.append("</think><answer>")
+                                self.thinking = False
                                 self.answer_opened = True
-                            tokens.append(content)
-                    for token in tokens:
-                        yield token
-                except Exception as e:
-                    print(f"Error processing stream chunk: {str(e)}")
-                    traceback.print_exc()
-                    continue
-            # 正常结束时，确保关闭流
-            self.close_stream()
-            yield "</answer>"
-        except Exception as e:
-            logger.error(f"Error in stream iterator: {e}", exc_info=True)
-            self.close_stream()  # 确保错误时也关闭流
-            raise
+
+                            content = getattr(delta, "content", None)
+                            if content is not None:
+                                if not self.answer_opened:
+                                    tokens.append("<answer>")
+                                    self.answer_opened = True
+                                tokens.append(content)
+                        for token in tokens:
+                            yield token
+                    except Exception as e:
+                        print(f"Error processing stream chunk: {str(e)}")
+                        traceback.print_exc()
+                        continue
+                # 正常结束时，确保关闭流
+                self.close_stream()
+                yield "</answer>"
+                break
+            except (httpx.ReadError, httpx.ConnectError, ConnectionError) as e:
+                logger.error(f"Network error in stream iterator, retrying ({retry_count + 1}/{max_retries}): {e}")
+                retry_count += 1
+                if retry_count < max_retries:
+                    self.create_stream(self.messages)  # 重新创建流
+            except Exception as e:
+                logger.error(f"Error in stream iterator: {e}", exc_info=True)
+                self.close_stream()  # 确保错误时也关闭流
+                raise
+        if retry_count == max_retries:
+            logger.error("Max retries reached in stream iterator.")
+    
 
 
 def decode_main_loop(sequence, r1_decoder, output_callback=None):
@@ -197,14 +233,14 @@ def decode_main_loop(sequence, r1_decoder, output_callback=None):
                 logger.debug("Decode loop completed normally")
                 break
             sequence += token
-            
+
             # 检查是否完成
             if sequence.endswith("</answer>"):
                 logger.debug("Found end token, breaking decode loop")
                 break
-                
+
         return sequence
-        
+
     except Exception as e:
         logger.error(f"Error in decode main loop: {e}", exc_info=True)
         raise
@@ -217,10 +253,10 @@ def decode_sequence(sequence, output_callback=None):
         r1_decoder = StreamingDecoder()
         if output_callback:
             r1_decoder.output_callback = output_callback
-            
+
         sequence = decode_main_loop(sequence, r1_decoder, output_callback)
         logger.info("Sequence decoding completed")
-        
+
         # 解析结果
         try:
             result = parse_result(sequence)
@@ -230,7 +266,7 @@ def decode_sequence(sequence, output_callback=None):
             logger.error(f"Error parsing result: {e}", exc_info=True)
             # 如果解析失败，返回空结果和原始序列
             return [], sequence
-            
+
     except Exception as e:
         logger.error(f"Error in decode_sequence: {e}", exc_info=True)
         raise
@@ -273,16 +309,16 @@ def parse_result(result_text):
             
         answer_text = result_text[answer_start:answer_end].strip()
         logger.debug(f"Extracted answer text: {answer_text[:100]}...")
-        
+
         # 处理 ```json 标记
         if answer_text.startswith("```json"):
             answer_text = answer_text[7:]  # 移除 ```json
         if answer_text.endswith("```"):
             answer_text = answer_text[:-3]  # 移除结尾的 ```
-            
+
         answer_text = answer_text.strip()
         logger.debug(f"Cleaned JSON text: {answer_text[:100]}...")
-        
+
         try:
             # 尝试解析 JSON
             result = json.loads(answer_text)
@@ -292,7 +328,7 @@ def parse_result(result_text):
             logger.error(f"Failed to parse JSON: {e}")
             logger.error(f"Problematic JSON text: {answer_text}")
             raise
-            
+
     except Exception as e:
         logger.error(f"Error parsing result: {e}", exc_info=True)
         raise
@@ -304,11 +340,11 @@ def process_alarm(alarm_info, output_callback=None):
     try:
         # 构建提示词
         sequence = format_prompt(alarm_info)
-        
+
         # 解码序列
         result, sequence_text = decode_sequence(sequence, output_callback=output_callback)
         logger.debug(f"Decode result: {result}")
-        
+
         # 如果结果为空，返回默认值
         if not result:
             result = [{
@@ -317,9 +353,9 @@ def process_alarm(alarm_info, output_callback=None):
                 "reasoning": "解析结果失败",
                 "conclusion": "无法得出结论"
             }]
-            
+
         return result, sequence_text
-        
+
     except Exception as e:
         logger.error(f"Error processing alarm: {e}", exc_info=True)
         raise
@@ -341,7 +377,8 @@ def test_openairequest():
                 "role": "user",
                 "content": "tell me a story about a person who was injured in a car crash"
             }
-        ]
+        ],
+        temperature=0
     )
     print(response)
 
