@@ -1168,3 +1168,23 @@ button {
     font-weight: 500;
     color: #606266;
 } 
+
+/* 收敛标记样式 */
+.convergence-mark {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #f56c6c;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.8; }
+    50% { opacity: 1; }
+    100% { opacity: 0.8; }
+}

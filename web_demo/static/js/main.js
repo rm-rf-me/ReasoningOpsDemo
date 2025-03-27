@@ -10,9 +10,9 @@ const app = new Vue({
         processing: false,
         currentAlarmId: null,
         started: false,
-        tempReasoningText: '', // 新增临时变量存储逐步更新的文本
-        activeMenu: '1',  // 默认选中告警处理菜单
-        isCollapse: false,  // 控制侧边栏展开/收起
+        tempReasoningText: '',
+        activeMenu: '1',
+        isCollapse: false,
         filterForm: {
             keyword: '',
             level: '',
@@ -39,61 +39,51 @@ const app = new Vue({
                 }
             }]
         },
-        expandedRows: [],  // 当前展开的行
-        filteredData: [],  // 添加一个数组来存储筛选后的数据
-        reasoningCards: [],  // 存储推理卡片
-        currentAlarm: null,  // 当前处理的告警
-        historyAlarms: [],   // 历史未收敛告警
-        userInput: '',  // 用户输入的消息
+        expandedRows: [],
+        filteredData: [],
+        reasoningCards: [],
+        currentAlarm: null,
+        historyAlarms: [],
+        userInput: '',
     },
     methods: {
-        // 其他代码不变
         initSocket() {
             console.log('Initializing socket connection...');
             this.socket = io();
             
-            // 监听当前处理的告警
             this.socket.on('current_alarm', (alarm) => {
                 console.log('Current alarm:', alarm);
                 this.currentAlarm = alarm;
             });
             
-            // 监听推理过程更新
             this.socket.on('reasoning_update', (data) => {
                 console.log('Reasoning update:', data);
                 if (data.content) {
                     this.reasoningText += data.content;
-                    // 实时解析推理卡片
                     this.reasoningCards = this.parseReasoningText(this.reasoningText);
                 }
             });
             
-            // 监听初始状态
             this.socket.on('init_state', (data) => {
                 console.log('Received init state:', data);
                 this.allAlarms = data.all_alarms;
                 this.notProcessedAlarms = data.not_processed_alarms;
             });
-            // 监听推理完成
+
             this.socket.on('reasoning_complete', (data) => {
                 console.log('推理完成:', data);
                 this.processing = false;
-                
-                // 更新告警列表
                 this.allAlarms = data.all_alarms;
                 console.log('Updated alarms:', this.allAlarms);
-                
-                // 直接更新推理文本，移除打字机效果
                 this.reasoningText = data.reasoning_text;
                 this.reasoningCards = this.parseReasoningText(this.reasoningText);
                 
-                // 确保当前处理的告警保持展开
                 const currentAlarm = this.allAlarms.find(alarm => alarm.is_current);
                 if (currentAlarm && !this.expandedRows.includes(currentAlarm.id)) {
                     this.expandedRows = [currentAlarm.id];
                 }
             });
-            // 监听错误
+
             this.socket.on('reasoning_error', (data) => {
                 console.error('Reasoning error:', data);
                 this.processing = false;
@@ -142,19 +132,19 @@ const app = new Vue({
             };
             return typeMap[type] || typeMap['默认'];
         },
+
         toggleCollapse() {
             this.isCollapse = !this.isCollapse;
         },
+
         handleMenuSelect(index) {
             this.activeMenu = index;
-            // 在移动端自动收起侧边栏
             if (window.innerWidth < 768) {
                 this.isCollapse = true;
             }
-            // 这里可以添加路由跳转逻辑
         },
+
         handleFilter() {
-            // 空实现，因为使用计算属性自动更新
             console.log('Filter applied:', this.filterForm);
         },
         
@@ -177,18 +167,15 @@ const app = new Vue({
         },
         
         refreshTable() {
-            // 刷新表格数据
             this.initSocket();
         },
         
         exportTable() {
-            // 导出表格数据
-            // 这里可以实现导出逻辑
+            // 导出逻辑
         },
         
         handleDetail(row) {
-            // 处理查看详情
-            // 可以打开详情弹窗等
+            // 详情处理
         },
         
         formatDate(dateStr) {
@@ -214,23 +201,17 @@ const app = new Vue({
         getConvergenceTitle(conclusion) {
             if (!conclusion) return '待处理';
             switch (conclusion.convergence_type) {
-                case '历史收敛':
-                    return '已收敛';
-                case '未来收敛':
-                    return '预期收敛';
-                default:
-                    return '待收敛';
+                case '历史收敛': return '已收敛';
+                case '未来收敛': return '预期收敛';
+                default: return '待收敛';
             }
         },
 
         getConvergenceTagType(type) {
             switch (type) {
-                case '历史收敛':
-                    return 'success';
-                case '未来收敛':
-                    return 'warning';
-                default:
-                    return 'info';
+                case '历史收敛': return 'success';
+                case '未来收敛': return 'warning';
+                default: return 'info';
             }
         },
 
@@ -249,12 +230,9 @@ const app = new Vue({
             const cards = [];
             let currentCard = null;
             
-            // 分析文本，提取不同类型的内容
             const lines = text.split('\n');
             for (let line of lines) {
-                // 匹配历史告警部分
                 if (line.includes('历史未收敛告警：')) {
-                    // 添加历史告警卡片
                     cards.push({
                         type: 'history',
                         content: line
@@ -262,53 +240,38 @@ const app = new Vue({
                     continue;
                 }
                 
-                // 匹配思考部分
                 if (line.includes('<think>')) {
-                    if (currentCard) {
-                        cards.push(currentCard);
-                    }
+                    if (currentCard) cards.push(currentCard);
                     currentCard = { type: 'think', content: line.replace(/<\/?think>/g, '') };
                     continue;
                 }
                 
-                // 匹配动作部分
                 if (line.match(/^Action:/)) {
-                    if (currentCard) {
-                        cards.push(currentCard);
-                    }
+                    if (currentCard) cards.push(currentCard);
                     currentCard = { type: 'action', content: line.replace('Action:', '').trim() };
                     continue;
                 }
                 
-                // 匹配结果部分
                 if (line.match(/^Result:/)) {
-                    if (currentCard) {
-                        cards.push(currentCard);
-                    }
+                    if (currentCard) cards.push(currentCard);
                     currentCard = { type: 'result', content: line.replace('Result:', '').trim() };
                     continue;
                 }
                 
-                // 匹配最终结论部分
                 if (line.includes('<answer>')) {
-                    if (currentCard) {
-                        cards.push(currentCard);
-                    }
+                    if (currentCard) cards.push(currentCard);
                     currentCard = { type: 'conclusion', content: '' };
                     continue;
                 }
                 
-                // 处理 JSON 结果
                 if (currentCard && currentCard.type === 'conclusion' && line.includes('"convergence_type"')) {
                     try {
-                        // 提取完整的 JSON 字符串
                         const jsonStart = text.indexOf('[', text.indexOf('<answer>'));
                         const jsonEnd = text.indexOf(']', jsonStart) + 1;
                         if (jsonStart !== -1 && jsonEnd !== -1) {
                             const jsonStr = text.substring(jsonStart, jsonEnd);
                             console.log('Extracted JSON:', jsonStr);
-                            const conclusions = JSON.parse(jsonStr);
-                            currentCard.content = conclusions;
+                            currentCard.content = JSON.parse(jsonStr);
                         }
                     } catch (e) {
                         console.error('Error parsing conclusion JSON:', e);
@@ -317,23 +280,18 @@ const app = new Vue({
                     continue;
                 }
                 
-                // 添加内容到当前卡片
                 if (currentCard && currentCard.type !== 'conclusion') {
                     currentCard.content += line + '\n';
                 }
             }
             
-            // 添加最后一个卡片
-            if (currentCard) {
-                cards.push(currentCard);
-            }
+            if (currentCard) cards.push(currentCard);
             
             console.log('Parsed cards:', cards);
             return cards;
         },
         
         parseHistoryAlarms(text) {
-            // 解析历史未收敛告警
             const alarmPattern = /#(\d+):\s*(.+?)(?=\s*#|$)/g;
             const alarms = [];
             let match;
@@ -354,8 +312,8 @@ const app = new Vue({
                 'action': 'el-icon-coordinate',
                 'result': 'el-icon-document-checked',
                 'conclusion': 'el-icon-success',
-                'user': 'el-icon-user',  // 添加用户消息的图标
-                'assistant': 'el-icon-service'  // 添加助手消息的图标
+                'user': 'el-icon-user',
+                'assistant': 'el-icon-service'
             };
             return icons[type] || 'el-icon-info';
         },
@@ -366,14 +324,13 @@ const app = new Vue({
                 'action': '执行动作',
                 'result': '执行结果',
                 'conclusion': '最终结论',
-                'user': '用户消息',  // 添加用户消息的标题
-                'assistant': '助手回复'  // 添加助手消息的标题
+                'user': '用户消息',
+                'assistant': '助手回复'
             };
             return titles[type] || '未知类型';
         },
         
         formatContent(content) {
-            // 如果是历史告警卡片
             if (content.includes('历史未收敛告警：')) {
                 const alarms = content.replace('历史未收敛告警：', '').trim().split(' ');
                 return `
@@ -395,27 +352,48 @@ const app = new Vue({
                 `;
             }
             
-            // 如果是结论卡片且内容是对象
             if (Array.isArray(content)) {
                 return content.map(item => {
+                    // 收敛关系标记
+                    const convergenceMark = item.convergence_type === '历史收敛' && item.converged_alarm_id 
+                        ? `<el-tag size="mini" type="danger" class="converge-mark" effect="dark">
+                            <i class="el-icon-connection"></i> 收敛自 #${item.converged_alarm_id}
+                           </el-tag>`
+                        : '';
+                    
+                    // 关联告警标记
+                    const relatedAlarmMark = item.related_alarm_id 
+                        ? `<el-tag size="mini" type="info" class="related-mark">
+                            <i class="el-icon-link"></i> 关联告警 #${item.related_alarm_id}
+                           </el-tag>`
+                        : '';
+                    
+                    // 收敛目标标记
+                    const convergingMark = item.converging_alarm_id 
+                        ? `<el-tag size="mini" type="success" class="converging-mark">
+                            <i class="el-icon-arrow-right"></i> 收敛至 #${item.converging_alarm_id}
+                           </el-tag>`
+                        : '';
+                    
                     return `
                         <div class="conclusion-item">
                             <div class="conclusion-header">
                                 <el-tag size="small" type="${this.getConvergenceTagType(item.convergence_type)}">
+                                    <i class="el-icon-${item.convergence_type === '历史收敛' ? 'success' : 'info'}"></i>
                                     ${item.convergence_type}
                                 </el-tag>
-                                <el-tag size="small" type="info">
-                                    ${item.related_alarm_id ? 
-                                        `关联告警: #${item.related_alarm_id}` : 
-                                        '无关联告警'}
-                                </el-tag>
+                                ${convergenceMark}
+                                ${relatedAlarmMark}
+                                ${convergingMark}
                             </div>
                             <el-descriptions :column="1" border size="small" class="conclusion-descriptions">
-                                <el-descriptions-item label="推理过程">
-                                    ${item.reasoning}
+                                <el-descriptions-item label="推理过程" class="reasoning-process">
+                                    <div class="reasoning-text">${item.reasoning}</div>
                                 </el-descriptions-item>
-                                <el-descriptions-item label="结论">
-                                    <div class="highlight-conclusion">${item.conclusion}</div>
+                                <el-descriptions-item label="最终结论">
+                                    <div class="highlight-conclusion">
+                                        <i class="el-icon-finished"></i> ${item.conclusion}
+                                    </div>
                                 </el-descriptions-item>
                             </el-descriptions>
                         </div>
@@ -423,7 +401,6 @@ const app = new Vue({
                 }).join('');
             }
             
-            // 其他类型卡片保持原有格式化
             return content
                 .replace(/\n/g, '<br>')
                 .replace(/(#\d+)/g, '<span class="highlight-id">$1</span>')
@@ -433,22 +410,18 @@ const app = new Vue({
         sendMessage() {
             if (!this.userInput.trim() || this.processing) return;
             
-            // 添加用户消息到推理卡片
             this.reasoningCards.push({
-                type: 'user',  // 使用新的卡片类型
+                type: 'user',
                 content: this.userInput
             });
             
-            // 发送消息到后端
             this.socket.emit('user_message', {
                 message: this.userInput,
                 current_alarm: this.currentAlarm
             });
             
-            // 清空输入框
             this.userInput = '';
             
-            // 滚动到底部
             this.$nextTick(() => {
                 const container = document.querySelector('.reasoning-cards');
                 container.scrollTop = container.scrollHeight;
@@ -457,13 +430,10 @@ const app = new Vue({
     },
     computed: {
         buttonText() {
-            if (!this.started) {
-                return '开始处理告警';
-            }
+            if (!this.started) return '开始处理告警';
             return this.processing ? '处理中...' : '处理下一条告警';
         },
         allAlarmIds() {
-            // 返回所有告警的 ID 列表，用于默认展开
             return this.allAlarms.map(alarm => alarm.id);
         },
         formattedSteps() {
@@ -508,14 +478,12 @@ const app = new Vue({
             });
         },
         defaultActiveAlarms() {
-            // 返回所有已处理的告警ID和当前处理的告警ID
             return this.allAlarms
                 .filter(alarm => alarm.is_processed || alarm.is_current)
                 .map(alarm => alarm.id);
         },
         filteredAlarms() {
             return this.allAlarms.filter(alarm => {
-                // 关键词筛选
                 if (this.filterForm.keyword) {
                     const keyword = this.filterForm.keyword.toLowerCase();
                     if (!alarm.alarm_msg.toLowerCase().includes(keyword) && 
@@ -524,12 +492,10 @@ const app = new Vue({
                     }
                 }
                 
-                // 告警等级筛选
                 if (this.filterForm.level && alarm.level !== this.filterForm.level) {
                     return false;
                 }
                 
-                // 处理状态筛选
                 if (this.filterForm.processStatus) {
                     switch (this.filterForm.processStatus) {
                         case 'pending':
@@ -544,7 +510,6 @@ const app = new Vue({
                     }
                 }
                 
-                // 收敛状态筛选
                 if (this.filterForm.convergenceStatus) {
                     if (this.filterForm.convergenceStatus === 'pending') {
                         if (alarm.conclusion && alarm.conclusion.length > 0) return false;
@@ -561,10 +526,8 @@ const app = new Vue({
         }
     },
     watch: {
-        // 监听告警列表变化，更新展开状态
         allAlarms: {
             handler(newAlarms) {
-                // 找到当前处理的告警
                 const currentAlarm = newAlarms.find(alarm => alarm.is_current);
                 if (currentAlarm && !this.activeAlarms.includes(currentAlarm.id)) {
                     this.activeAlarms.push(currentAlarm.id);
@@ -586,7 +549,54 @@ const app = new Vue({
     mounted() {
         this.initSocket();
         
-        // 监听推理过程更新
+        // 添加收敛关系样式
+        const style = document.createElement('style');
+        style.textContent = `
+            .converge-mark {
+                margin-left: 8px;
+                animation: pulse 1.5s infinite;
+                border-color: #f56c6c;
+            }
+            .related-mark {
+                margin-left: 8px;
+            }
+            .converging-mark {
+                margin-left: 8px;
+            }
+            @keyframes pulse {
+                0% { opacity: 0.7; box-shadow: 0 0 3px rgba(245,108,108,0.3); }
+                50% { opacity: 1; box-shadow: 0 0 8px rgba(245,108,108,0.6); }
+                100% { opacity: 0.7; box-shadow: 0 0 3px rgba(245,108,108,0.3); }
+            }
+            .conclusion-header {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                align-items: center;
+                margin-bottom: 10px;
+            }
+            .highlight-id {
+                color: #409EFF;
+                font-weight: bold;
+            }
+            .highlight-conclusion {
+                color: #67C23A;
+                font-weight: 500;
+            }
+            .reasoning-text {
+                white-space: pre-wrap;
+                line-height: 1.6;
+            }
+            .conclusion-item {
+                margin-bottom: 16px;
+                padding: 12px;
+                background: #f8fafc;
+                border-radius: 4px;
+                border-left: 3px solid #409EFF;
+            }
+        `;
+        document.head.appendChild(style);
+
         this.socket.on('reasoning_update', (data) => {
             if (data.content) {
                 this.tempReasoningText += data.content;
@@ -594,11 +604,10 @@ const app = new Vue({
             }
         });
         
-        // 监听窗口大小变化，在小屏幕下自动收起侧边栏
         window.addEventListener('resize', () => {
             if (window.innerWidth < 768) {
                 this.isCollapse = true;
             }
         });
     }
-}); 
+});
