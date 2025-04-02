@@ -45,6 +45,7 @@ const app = new Vue({
         currentAlarm: null,
         historyAlarms: [],
         userInput: '',
+        processingNext: false,
     },
     methods: {
         initSocket() {
@@ -544,7 +545,32 @@ const app = new Vue({
                 console.log('无收敛信息:', row);
             }
             return '';
-        }
+        },
+
+        nextAlarm() {
+            this.processingNext = true;
+            this.socket.emit('next_alarm');
+            
+            // 清空推理卡片
+            this.reasoningCards = [];
+            this.reasoningText = '';
+            this.tempReasoningText = '';
+        },
+        
+        processCurrentAlarm() {
+            if (!this.currentAlarm) {
+                this.$message.warning('没有当前处理的告警');
+                return;
+            }
+            
+            this.processing = true;
+            this.socket.emit('process_current_alarm');
+            
+            // 清空推理卡片
+            this.reasoningCards = [];
+            this.reasoningText = '';
+            this.tempReasoningText = '';
+        },
     },
     computed: {
         buttonText() {
@@ -726,6 +752,49 @@ const app = new Vue({
             if (window.innerWidth < 768) {
                 this.isCollapse = true;
             }
+        });
+
+        // 添加清空推理结果的监听
+        this.socket.on('clear_reasoning', () => {
+            this.reasoningCards = [];
+            this.reasoningText = '';
+            this.tempReasoningText = '';
+        });
+        
+        // 修改告警更新监听
+        this.socket.on('alarms_update', (data) => {
+            this.allAlarms = data.all_alarms;
+            this.processingNext = false;
+        });
+        
+        // 修改推理完成监听
+        this.socket.on('reasoning_complete', (data) => {
+            this.processing = false;
+            this.processingNext = false;
+            
+            if (data.result) {
+                this.allAlarms = data.all_alarms;
+            }
+            
+            // 解析推理步骤
+            if (data.reasoning_steps && data.reasoning_steps.length > 0) {
+                this.reasoningCards = data.reasoning_steps;
+            } else {
+                this.parseReasoningText(data.reasoning_text);
+            }
+        });
+        
+        // 添加无更多告警的监听
+        this.socket.on('no_more_alarms', (data) => {
+            this.processingNext = false;
+            this.$message.info(data.message);
+        });
+        
+        // 添加推理错误的监听
+        this.socket.on('reasoning_error', (data) => {
+            this.processing = false;
+            this.processingNext = false;
+            this.$message.error(data.error);
         });
     }
 });

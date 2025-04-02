@@ -82,7 +82,7 @@ body {
 /* 操作按钮组样式 */
 .action-buttons {
     display: flex;
-    align-items: center;
+    gap: 10px;
 }
 
 .action-buttons .el-button {
@@ -975,7 +975,7 @@ button {
 /* 调整卡片内边距 */
 .alarm-panel .el-card__body {
     padding: 0 20px 20px;
-    overflow-y: auto;  /* 允许告警面板内容滚动 */
+    overflow: auto;  /* 允许告警面板内容滚动 */
 }
 
 /* 告警消息样式 */
@@ -1272,17 +1272,53 @@ button {
     white-space: normal;  /* 允许正常换行 */
 }
 
-/* 确保表格可以水平滚动 */
+/* 确保表格可以上下滚动 */
 .alarm-panel .el-card__body {
-    overflow-x: auto;  /* 允许水平滚动 */
+    height: calc(100vh - 200px);
+    overflow: auto;
 }
 
-/* 表格内容样式优化 */
+.el-table {
+    height: 100%;
+}
+
 .el-table__body-wrapper {
-    overflow-x: auto !important;  /* 强制允许表格内容水平滚动 */
+    overflow-y: auto !important;
+    max-height: calc(100vh - 250px);
 }
 
-/* 固定操作列，确保总是可见 */
+/* 当前处理标识图标样式 */
+.current-indicator {
+    color: #F56C6C;
+    font-size: 16px;
+    animation: pulse 1.5s infinite;
+}
+
+/* 移除底部按钮区域 */
+.el-main > .action-buttons {
+    display: none;
+}
+
+/* 移除不再需要的样式 */
+.alarm-id-column {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+/* 移除固定列相关样式 */
 .el-table .el-table__fixed-right {
-    box-shadow: -2px 0 8px rgba(0,0,0,.1);  /* 添加阴影效果 */
+    box-shadow: none;
+}
+
+/* 确保表格内容可以正常滚动 */
+.el-table__body-wrapper {
+    overflow: auto !important;
+}
+
+/* 调整表格容器高度，确保有足够空间显示所有内容 */
+.alarm-panel .el-card__body {
+    height: calc(100vh - 220px);
+    overflow: auto;
 }

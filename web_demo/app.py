@@ -18,6 +18,8 @@ thread = None
 thread_lock = Lock()
 # 全局环境实例
 env = AlarmReasoningEnv()
+# 全局变量记录当前处理的告警
+current_alarm = None
 
 def emit_reasoning_output(content):
     """实时发送推理过程到前端"""
@@ -35,41 +37,76 @@ def emit_reasoning_output(content):
 def index():
     return render_template('index.html')
 
-@socketio.on('process_next_alarm')
-def process_reasoning():
-    """处理下一条告警的推理"""
+@socketio.on('get_current_alarm')
+def get_current_alarm():
+    """获取当前正在处理的告警"""
+    global current_alarm
+    socketio.emit('current_alarm_update', current_alarm)
+    return current_alarm
+
+@socketio.on('next_alarm')
+def next_alarm():
+    """仅推进到下一条告警，不进行AI处理"""
+    global current_alarm
+    
     # 获取下一个未处理的告警
-    alarm = env.get_next_not_processed_alarm()  # 使用 env 的方法
-    logger.info(f"Processing alarm at {time.strftime('%H:%M:%S')}: {alarm}")
+    alarm = env.get_next_not_processed_alarm()
     
     if not alarm:
         logger.info("No more alarms to process")
-        socketio.emit('reasoning_complete', {
-            'result': [],
-            'reasoning_text': '所有告警已处理完成',
-            'all_alarms': env.get_all_alarms(),
-            'reasoning_steps': []  # 添加空的推理步骤
+        socketio.emit('no_more_alarms', {
+            'message': '所有告警已处理完成'
         })
+        current_alarm = None
         return
-        
+    
+    # 更新当前告警
+    current_alarm = alarm
+    logger.info(f"Moving to next alarm: {alarm['id']}")
+    
+    # 发送当前处理的告警信息
+    socketio.emit('current_alarm', alarm)
+    
+    # 清空推理结果
+    socketio.emit('clear_reasoning')
+    
+    # 返回所有告警的最新状态
+    socketio.emit('alarms_update', {
+        'all_alarms': env.get_all_alarms()
+    })
+
+@socketio.on('process_current_alarm')
+def process_current_alarm():
+    """对当前告警进行AI推理处理"""
+    global current_alarm
+    
+    if not current_alarm:
+        logger.warning("No current alarm to process")
+        socketio.emit('reasoning_error', {'error': '没有当前处理的告警'})
+        return
+    
+    logger.info(f"Processing current alarm at {time.strftime('%H:%M:%S')}: {current_alarm}")
+    
     def process_task():
         try:
             start_time = time.time()
             logger.info(f"Starting reasoning process at {time.strftime('%H:%M:%S')}")
             
+            # 清空之前的推理结果
+            socketio.emit('clear_reasoning')
+            
             # 发送当前处理的告警信息
-            socketio.emit('current_alarm', alarm)
+            socketio.emit('current_alarm', current_alarm)
             
             # 修改为接收新的返回值
             reasoning_result, all_reasoning_results, reasoning_history, reasoning_steps = env.process_alarm({
-                "current_alarm": alarm,
+                "current_alarm": current_alarm,
                 "history_alarms": env.get_history_alarms()
             }, output_callback=emit_reasoning_output)
             
             end_time = time.time()
             logger.info(f"Reasoning completed in {end_time - start_time:.2f} seconds")
             logger.info(f"Result: {reasoning_result}")
-            # logger.info(f"Reasoning steps count: {len(reasoning_steps)}")
             
             # 更新告警状态
             env.update_alarm_state(reasoning_result)
@@ -77,9 +114,9 @@ def process_reasoning():
             
             socketio.emit('reasoning_complete', {
                 'result': reasoning_result,
-                'reasoning_text': reasoning_history,  # 使用完整的推理历史
+                'reasoning_text': reasoning_history,
                 'all_alarms': updated_alarms,
-                'reasoning_steps': reasoning_steps  # 添加推理步骤
+                'reasoning_steps': reasoning_steps
             })
             
         except Exception as e:
@@ -88,6 +125,13 @@ def process_reasoning():
             socketio.emit('reasoning_error', {'error': error_msg})
 
     socketio.start_background_task(process_task)
+
+# 保留原有的process_reasoning函数作为兼容
+@socketio.on('process_next_alarm')
+def process_reasoning():
+    """处理下一条告警的推理（兼容旧版本）"""
+    next_alarm()
+    process_current_alarm()
 
 @socketio.on('connect')
 def handle_connect():
@@ -111,6 +155,12 @@ def handle_connect():
         'all_processed': env.history_windows.all_alarms,
         'not_processed_alarms': not_processed_alarms
     })
+    
+    # 初始化当前告警
+    global current_alarm
+    current_alarm = env.get_next_not_processed_alarm()
+    if current_alarm:
+        emit('current_alarm', current_alarm)
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)

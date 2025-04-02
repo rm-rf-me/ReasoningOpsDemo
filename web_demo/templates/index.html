@@ -56,12 +56,21 @@
                             </el-button-group>
                             <el-divider direction="vertical"></el-divider>
                             <el-button 
-                                type="success" 
-                                icon="el-icon-video-play"
-                                @click="processNextAlarm" 
-                                :loading="processing"
+                                type="primary" 
+                                icon="el-icon-arrow-right"
+                                @click="nextAlarm" 
+                                :loading="processingNext"
                                 size="medium">
-                                [[ buttonText ]]
+                                处理下一条告警
+                            </el-button>
+                            <el-button 
+                                type="success" 
+                                icon="el-icon-cpu"
+                                @click="processCurrentAlarm" 
+                                :loading="processing"
+                                :disabled="!currentAlarm"
+                                size="medium">
+                                AI辅助推理
                             </el-button>
                         </div>
                     </div>
@@ -128,8 +137,10 @@
                                 <el-table
                                     :data="filteredAlarms"
                                     style="width: 100%"
+                                    :row-class-name="tableRowClassName"
+                                    @row-click="handleRowClick"
                                     :expand-row-keys="expandedRows"
-                                    @expand-change="handleExpandChange">
+                                    row-key="id">
                                     <el-table-column type="expand">
                                         <template slot-scope="props">
                                             <div class="alarm-detail">
@@ -196,9 +207,19 @@
                                         </template>
                                     </el-table-column>
                                     
-                                    <el-table-column type="index" label="序号" width="70" align="center">
+                                    <el-table-column width="40" align="center">
                                         <template slot-scope="scope">
-                                            <el-tag size="medium" effect="plain">#[[ scope.$index + 1 ]]</el-tag>
+                                            <i 
+                                                v-if="currentAlarm && currentAlarm.id === scope.row.id" 
+                                                class="el-icon-star-on current-indicator"
+                                                title="当前处理中">
+                                            </i>
+                                        </template>
+                                    </el-table-column>
+                                    
+                                    <el-table-column label="序号" width="70" align="center">
+                                        <template slot-scope="scope">
+                                            <span class="alarm-id">#[[ scope.row.id ]]</span>
                                         </template>
                                     </el-table-column>
                                     
@@ -260,13 +281,20 @@
                                         </template>
                                     </el-table-column>
                                     
-                                    <el-table-column label="操作" width="100" fixed="right" align="center">
+                                    <el-table-column label="操作" width="120" align="center">
                                         <template slot-scope="scope">
                                             <el-button
+                                                size="mini"
                                                 type="text"
-                                                size="small"
-                                                @click="handleDetail(scope.row)">
-                                                手动处理
+                                                @click.stop="handleDetail(scope.row)">
+                                                详情
+                                            </el-button>
+                                            <el-button
+                                                v-if="scope.row.recovery_time"
+                                                size="mini"
+                                                type="text"
+                                                @click.stop="showRecoveryInfo(scope.row)">
+                                                恢复信息
                                             </el-button>
                                         </template>
                                     </el-table-column>
@@ -279,12 +307,20 @@
                             <el-card shadow="hover" class="reasoning-panel">
                                 <div slot="header" class="panel-header">
                                     <span><i class="el-icon-cpu"></i> 智能运维大模型</span>
-                                    <el-button v-if="reasoningText" 
-                                             type="text"
-                                             size="small"
-                                             @click="clearReasoningOutput">
-                                        <i class="el-icon-delete"></i> 清空
-                                    </el-button>
+                                    <div>
+                                        <el-button v-if="reasoningText" 
+                                                 type="text"
+                                                 size="small"
+                                                 @click="clearReasoningOutput">
+                                            清空
+                                        </el-button>
+                                        <el-button v-if="reasoningText" 
+                                                 type="text"
+                                                 size="small"
+                                                 icon="el-icon-download">
+                                            保存
+                                        </el-button>
+                                    </div>
                                 </div>
 
                                 <!-- 当前处理的告警信息 -->
