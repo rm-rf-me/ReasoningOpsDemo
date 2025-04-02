@@ -146,10 +146,11 @@ class AlarmReasoningEnv:
         return history_alarms
 
     def process_alarm(self, context, output_callback=None):
-        """处理单个告警（保持不变）"""
+        """处理单个告警"""
         current_alarm = context['current_alarm']
         history_alarms = self.get_history_alarms()
         
+        # 添加历史未收敛告警到输出
         if history_alarms:
             history_text = "历史未收敛告警：" + " ".join([
                 f"#{alarm['id']}: {alarm['alarm_msg']}" 
@@ -158,8 +159,12 @@ class AlarmReasoningEnv:
             if output_callback:
                 output_callback(history_text + "\n\n")
         
+        # 使用原有的 API，但接收新的返回值
         context['history_alarms'] = history_alarms
-        return reasoning_process_alarm(context, output_callback=output_callback)
+        result, sequence_text, reasoning_history, reasoning_steps = reasoning_process_alarm(context, output_callback=output_callback)
+        
+        # 返回所有值
+        return result, sequence_text, reasoning_history, reasoning_steps
 
     def update_alarm_state(self, reasoning_result):
         """更新告警状态（增强收敛关系存储）"""

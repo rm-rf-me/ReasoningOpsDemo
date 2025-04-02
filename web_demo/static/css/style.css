@@ -112,10 +112,10 @@ body {
 
 /* 主体内容样式 */
 .el-main {
-    padding: 20px;
     background-color: #f0f2f5;
+    padding: 20px;
     height: calc(100vh - 64px);
-    overflow-y: auto;
+    overflow: hidden;  /* 改为 hidden，防止主容器滚动 */
 }
 
 /* 卡片样式 */
@@ -123,6 +123,7 @@ body {
     height: calc(100vh - 104px);
     display: flex;
     flex-direction: column;
+    overflow: hidden;  /* 确保卡片不溢出 */
 }
 
 .panel-header {
@@ -798,12 +799,15 @@ button {
     background-color: #f0f2f5;
     padding: 20px;
     height: calc(100vh - 64px);
-    overflow-y: auto;
+    overflow: hidden;  /* 改为 hidden，防止主容器滚动 */
 }
 
 /* 卡片高度调整 */
 .el-card {
     height: calc(100vh - 104px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;  /* 确保卡片不溢出 */
 }
 
 /* 告警标题样式 */
@@ -896,6 +900,7 @@ button {
 /* 调整卡片内边距 */
 .alarm-panel .el-card__body {
     padding: 0 20px 20px;
+    overflow-y: auto;  /* 允许告警面板内容滚动 */
 }
 
 /* 告警消息样式 */
@@ -1080,37 +1085,45 @@ button {
     padding-right: 4px;
 }
 
-/* 输入框区域 */
+/* 输入框区域优化 */
 .reasoning-input {
-    flex-shrink: 0;  /* 防止输入框被压缩 */
-    margin-top: auto;  /* 将输入框推到底部 */
-    padding: 12px;
+    flex-shrink: 0;
+    margin-top: auto;
+    padding: 10px;  /* 减小内边距 */
     background: #fff;
     border-radius: 4px;
     border: 1px solid #EBEEF5;
     display: flex;
-    gap: 12px;
+    gap: 8px;  /* 减小间距 */
     align-items: flex-end;
 }
 
 .reasoning-input .el-textarea {
     flex: 1;
-    margin-bottom: 0;  /* 移除底部边距 */
+    margin-bottom: 0;
 }
 
 .reasoning-input .el-textarea__inner {
     resize: none;
-    font-size: 13px;
-    min-height: 32px !important;  /* 确保最小高度和按钮一致 */
-    line-height: 1.5;
-    padding: 5px 10px;  /* 调整内边距 */
+    font-size: 12px;  /* 减小字体 */
+    min-height: 32px !important;
+    line-height: 1.4;
+    padding: 5px 8px;  /* 减小内边距 */
 }
 
-.reasoning-input .el-button {
-    height: 32px;  /* 固定按钮高度 */
-    padding: 8px 15px;
-    margin: 0;  /* 移除按钮边距 */
-    align-self: flex-end;  /* 确保按钮在底部对齐 */
+/* 响应式调整 */
+@media (max-width: 1200px) {
+    .reasoning-input .el-textarea__inner::placeholder {
+        font-size: 11px;  /* 窄屏下减小占位符字体 */
+    }
+    
+    .reasoning-input .el-button {
+        padding: 8px;  /* 减小按钮内边距 */
+    }
+    
+    .reasoning-input .el-button span {
+        display: none;  /* 隐藏按钮文字，只显示图标 */
+    }
 }
 
 /* 美化滚动条 */
@@ -1187,4 +1200,31 @@ button {
     0% { opacity: 0.8; }
     50% { opacity: 1; }
     100% { opacity: 0.8; }
+}
+
+/* 表格响应式优化 */
+.el-table {
+    width: 100% !important;
+    table-layout: fixed;  /* 使用固定表格布局 */
+}
+
+/* 告警内容列宽度调整 */
+.alarm-message {
+    word-break: break-word;  /* 允许在任意字符处换行 */
+    white-space: normal;  /* 允许正常换行 */
+}
+
+/* 确保表格可以水平滚动 */
+.alarm-panel .el-card__body {
+    overflow-x: auto;  /* 允许水平滚动 */
+}
+
+/* 表格内容样式优化 */
+.el-table__body-wrapper {
+    overflow-x: auto !important;  /* 强制允许表格内容水平滚动 */
+}
+
+/* 固定操作列，确保总是可见 */
+.el-table .el-table__fixed-right {
+    box-shadow: -2px 0 8px rgba(0,0,0,.1);  /* 添加阴影效果 */
 }

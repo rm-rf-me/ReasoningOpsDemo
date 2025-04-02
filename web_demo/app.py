@@ -47,7 +47,8 @@ def process_reasoning():
         socketio.emit('reasoning_complete', {
             'result': [],
             'reasoning_text': '所有告警已处理完成',
-            'all_alarms': env.get_all_alarms()
+            'all_alarms': env.get_all_alarms(),
+            'reasoning_steps': []  # 添加空的推理步骤
         })
         return
         
@@ -59,7 +60,8 @@ def process_reasoning():
             # 发送当前处理的告警信息
             socketio.emit('current_alarm', alarm)
             
-            reasoning_result, all_reasoning_results = env.process_alarm({
+            # 修改为接收新的返回值
+            reasoning_result, all_reasoning_results, reasoning_history, reasoning_steps = env.process_alarm({
                 "current_alarm": alarm,
                 "history_alarms": env.get_history_alarms()
             }, output_callback=emit_reasoning_output)
@@ -67,6 +69,7 @@ def process_reasoning():
             end_time = time.time()
             logger.info(f"Reasoning completed in {end_time - start_time:.2f} seconds")
             logger.info(f"Result: {reasoning_result}")
+            # logger.info(f"Reasoning steps count: {len(reasoning_steps)}")
             
             # 更新告警状态
             env.update_alarm_state(reasoning_result)
@@ -74,8 +77,9 @@ def process_reasoning():
             
             socketio.emit('reasoning_complete', {
                 'result': reasoning_result,
-                'reasoning_text': ''.join(all_reasoning_results),
-                'all_alarms': updated_alarms
+                'reasoning_text': reasoning_history,  # 使用完整的推理历史
+                'all_alarms': updated_alarms,
+                'reasoning_steps': reasoning_steps  # 添加推理步骤
             })
             
         except Exception as e:

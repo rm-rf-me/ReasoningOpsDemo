@@ -1,6 +1,6 @@
 from functools import partial
 from openai import OpenAI
-from .utils import make_assistant, make_user
+from .utils import make_assistant, make_user, make_system
 from .act_when_thinking import ActWhenThinking
 from dotenv import load_dotenv
 import logging
@@ -13,7 +13,7 @@ import traceback
 
 from .fake_api import get_instance, GraphAPI, DeviceAPI, BARuleAPI
 
-from .prompts import root_cause_analysis_prompt_mock
+from .prompts import root_cause_analysis_prompt_mock, root_cause_analysis_prompt
 
 load_dotenv()
 
@@ -60,6 +60,12 @@ class StreamingDecoder:
         self.stream = None
         self.output_callback = None
         self.messages = None  # 添加 messages 属性
+        
+        # 添加记录推理历史的变量
+        self.reasoning_history = ""  # 完整的推理历史文本
+        self.reasoning_steps = []    # 推理步骤的JSON记录
+        self.current_step = None     # 当前正在构建的步骤
+        
         try:
             self.client = OpenAI(
                 api_key=os.environ['DEEPSEEK_API_KEY'],
@@ -119,6 +125,38 @@ class StreamingDecoder:
     def wait_action(self, action):
         print("\ntake action!\n", action)
         self.close_stream()
+        
+        # 记录动作步骤
+        if self.current_step and self.current_step['type'] == 'think':
+            # 完成当前思考步骤
+            self.reasoning_steps.append(self.current_step)
+        
+        # 创建新的动作步骤
+        self.current_step = {
+            'type': 'action',
+            'content': action,
+            'timestamp': time.time()
+        }
+        self.reasoning_steps.append(self.current_step)
+        
+        # 更新历史文本
+        self.reasoning_history += f"\nAction: {action}\n"
+
+    def record_result(self, result):
+        """记录执行结果"""
+        # 创建结果步骤
+        result_step = {
+            'type': 'result',
+            'content': result,
+            'timestamp': time.time()
+        }
+        self.reasoning_steps.append(result_step)
+        
+        # 更新历史文本
+        self.reasoning_history += f"\nResult: {result}\n"
+        
+        # 重置当前步骤
+        self.current_step = None
 
     @awt.register_init_prompt
     @awt.register_update_prompt
@@ -146,10 +184,52 @@ class StreamingDecoder:
                 token = next(self.stream_iterator)
                 if token and self.output_callback:
                     self.output_callback(token)
+                    
+                # 更新推理历史
+                if token:
+                    self.reasoning_history += token
+                    
+                    # 处理不同类型的标记
+                    if "<think>" in token and not self.current_step:
+                        # 开始新的思考步骤
+                        self.current_step = {
+                            'type': 'think',
+                            'content': token.replace("<think>", ""),
+                            'timestamp': time.time()
+                        }
+                    elif "</think>" in token and self.current_step and self.current_step['type'] == 'think':
+                        # 完成当前思考步骤
+                        self.current_step['content'] += token.replace("</think>", "")
+                        self.reasoning_steps.append(self.current_step)
+                        self.current_step = None
+                    elif "<answer>" in token:
+                        # 开始答案步骤
+                        if self.current_step:
+                            # 完成之前的步骤
+                            self.reasoning_steps.append(self.current_step)
+                        
+                        self.current_step = {
+                            'type': 'answer',
+                            'content': token.replace("<answer>", ""),
+                            'timestamp': time.time()
+                        }
+                    elif "</answer>" in token and self.current_step and self.current_step['type'] == 'answer':
+                        # 完成答案步骤
+                        self.current_step['content'] += token.replace("</answer>", "")
+                        self.reasoning_steps.append(self.current_step)
+                        self.current_step = None
+                    elif self.current_step:
+                        # 继续当前步骤
+                        self.current_step['content'] += token
+                
                 return token
                 
             except StopIteration:
                 logger.info("Stream iteration completed")
+                # 确保最后一个步骤被添加
+                if self.current_step:
+                    self.reasoning_steps.append(self.current_step)
+                    self.current_step = None
                 return None
                 
             except (httpx.ReadError, httpx.ConnectError, ConnectionError, OSError) as e:
@@ -221,6 +301,13 @@ class StreamingDecoder:
         if retry_count == max_retries:
             logger.error("Max retries reached in stream iterator.")
     
+    def get_reasoning_history(self):
+        """获取完整的推理历史文本"""
+        return self.reasoning_history
+    
+    def get_reasoning_steps(self):
+        """获取推理步骤的JSON记录"""
+        return self.reasoning_steps
 
 
 def decode_main_loop(sequence, r1_decoder, output_callback=None):
@@ -261,11 +348,18 @@ def decode_sequence(sequence, output_callback=None):
         try:
             result = parse_result(sequence)
             logger.debug(f"Parsed result: {result}")
-            return result, sequence
+            
+            # 获取推理历史和步骤
+            reasoning_history = r1_decoder.get_reasoning_history()
+            reasoning_steps = r1_decoder.get_reasoning_steps()
+            
+            logger.debug(f"Reasoning steps: {reasoning_steps}")
+            
+            return result, sequence, reasoning_history, reasoning_steps
         except Exception as e:
             logger.error(f"Error parsing result: {e}", exc_info=True)
             # 如果解析失败，返回空结果和原始序列
-            return [], sequence
+            return [], sequence, r1_decoder.get_reasoning_history(), r1_decoder.get_reasoning_steps()
 
     except Exception as e:
         logger.error(f"Error in decode_sequence: {e}", exc_info=True)
@@ -287,7 +381,7 @@ def format_prompt(alarm_info: dict) -> str:
     print("Current alarm:", current_alarm)
     print("History alarms:", history_alarms)
 
-    prompt = root_cause_analysis_prompt_mock.format(
+    prompt = root_cause_analysis_prompt.format(
         current_alarm=current_alarm,
         history_alarms=history_alarms,
     )
@@ -342,8 +436,9 @@ def process_alarm(alarm_info, output_callback=None):
         sequence = format_prompt(alarm_info)
 
         # 解码序列
-        result, sequence_text = decode_sequence(sequence, output_callback=output_callback)
+        result, sequence_text, reasoning_history, reasoning_steps = decode_sequence(sequence, output_callback=output_callback)
         logger.debug(f"Decode result: {result}")
+        logger.debug(f"Reasoning steps count: {len(reasoning_steps)}")
 
         # 如果结果为空，返回默认值
         if not result:
@@ -354,7 +449,9 @@ def process_alarm(alarm_info, output_callback=None):
                 "conclusion": "无法得出结论"
             }]
 
-        return result, sequence_text
+        # 返回结果、序列文本、推理历史和推理步骤
+        # breakpoint()
+        return result, sequence_text, reasoning_history, reasoning_steps
 
     except Exception as e:
         logger.error(f"Error processing alarm: {e}", exc_info=True)

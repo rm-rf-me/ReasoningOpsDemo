@@ -48,6 +48,8 @@ def parse_generations(generations: str) -> tuple[DecodeState, Dict]:
         elif current_state == DecodeState.ANSWER:
             if accummulated_string.endswith(THINK_START):
                 current_state = DecodeState.THINK
+            elif accummulated_string.endswith(ANSWER_END):
+                current_state = DecodeState.BEGIN
         elif current_state == DecodeState.ACTION_BEGIN:
             action_string += gen_char
             if accummulated_string.endswith(ACTION_END):
