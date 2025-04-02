@@ -595,6 +595,7 @@ const app = new Vue({
             };
             
             this.socket.emit('process_current_alarm', requestData);
+            // this.socket.emit('process_current_alarm');
             
             // 清空推理卡片
             this.reasoningCards = [];

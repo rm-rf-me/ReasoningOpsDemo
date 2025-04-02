@@ -4,6 +4,7 @@ import os
 import time
 import pandas as pd
 
+
 class Singleton:
     _instances = {}
 
@@ -39,12 +40,11 @@ class GraphAPI(Singleton):
 
     def _process_graph(self):
         self.read_graph('graph_data.xlsx')
-        csv_file='graph_data.csv'
+        csv_file = 'graph_data.csv'
         df = pd.read_csv(csv_file)
 
         # 将 DataFrame 转换为 JSON 数组
         self.graph = df.to_json(orient='records', force_ascii=False, indent=4)
-
 
     def query(self, description: str, max_retry: int = 3) -> str:
         llm = LLM()
@@ -61,14 +61,13 @@ class GraphAPI(Singleton):
 请直接回复设备间的拓扑关系。
         """
         res = llm.query(prompt, model_name="gpt-4o")
-        breakpoint()
+        # breakpoint()
         return res
 
 
 class DeviceAPI(Singleton):
     def __init__(self):
         self.device_info = []
-
 
     def _read_device_data(self):
         """读取预设的设备信息数据"""
@@ -77,7 +76,6 @@ class DeviceAPI(Singleton):
             # 读取所有设备并格式化为JSON结构
             device_text = f.read().strip()
             self.device_info.append(json.loads(device_text))
-
 
     def query(self, description: str, max_retry: int = 3) -> str:
         llm = LLM()
@@ -98,46 +96,26 @@ Please answer the question in text format, or reply "No answer" if there is no a
         return res
 
 
-
 class BARuleAPI(Singleton):
     def __init__(self):
-        self.rules = []
-        self._load_rules()
+        self.all_rules = []
+        self._read_rules()
 
-    def _load_rules(self):
-        """加载BA规则"""
-        # 示例规则数据
-        self.rules = [
-            {
-                "id": "rule_001",
-                "name": "冷源故障切换规则",
-                "description": "当单套冷源出现故障时，系统应启用运行时间最短的备用冷源。"
-            },
-            {
-                "id": "rule_002",
-                "name": "冷却泵压力异常处理规则",
-                "description": "当冷却泵出口压力低于阈值时，应检查管路是否泄漏或堵塞。"
-            },
-            {
-                "id": "rule_003",
-                "name": "冷机启停顺序规则",
-                "description": "冷机启动顺序应按照运行时间最短优先原则，停机顺序应按照运行时间最长优先原则。"
-            },
-            {
-                "id": "rule_004",
-                "name": "群控系统手自动切换规则",
-                "description": "当设备从自动模式切换到手动模式时，应记录操作人员和切换原因。"
-            },
-            {
-                "id": "rule_005",
-                "name": "温度异常处理规则",
-                "description": "当温度超出正常范围时，应检查相关设备的运行状态和控制参数。"
-            }
-        ]
+    def _read_rules(self):
+        """读取预设的运维规则数据"""
+        fake_file = os.path.join(os.path.dirname(__file__), 'ba_data.txt')
+        try:
+            with open(fake_file, 'r', encoding='utf-8') as f:
+                # 读取所有规则并格式化为JSON结构
+                rules_text = f.read().strip()
+                self.all_rules.append(rules_text)
+        except Exception as e:
+            print(f"Error reading BA rules: {e}")
+            self.all_rules = []
 
     def get_all_rules(self):
         """获取所有BA规则"""
-        return self.rules
+        return self.all_rules
 
     def query(self, description: str, max_retry: int = 3) -> str:
         llm = LLM()
@@ -147,7 +125,7 @@ class BARuleAPI(Singleton):
 你需要根据描述的情况，从运维规则库中找出相关的规则内容。
 
 运维规则库的内容如下：
-{json.dumps(self.rules, ensure_ascii=False)}
+{json.dumps(self.all_rules, ensure_ascii=False)}
 
 请根据以下描述查找相关规则：
 {description}
@@ -182,7 +160,7 @@ class AlarmInputAPI(Singleton):
         """读取预设的告警数据"""
         fake_file = os.path.join(os.path.dirname(__file__), 'alarm_data.txt')
         print(f"Reading alarm data from: {fake_file}")
-        
+
         with open(fake_file, 'r', encoding='utf-8') as f:
             # 跳过标题行
             next(f)
@@ -191,29 +169,29 @@ class AlarmInputAPI(Singleton):
                 fields = line.strip().split('\t')
                 if len(fields) >= 17:  # 确保有足够的字段
                     alarm_data = {
-                        'level': fields[0],                    # 告警等级
-                        'alarm_msg': fields[1],                # 告警内容
-                        'alarm_time': fields[2],               # 告警时间
-                        'id': fields[3],                       # 告警编号
-                        'location_full': fields[4],            # 告警位置全名
-                        'location': fields[5],                 # 告警位置
-                        'subject': fields[6],                  # 告警主体
-                        'subject_short': fields[7],            # 告警主体短名称
-                        'device_type': fields[8],              # 设备类型
-                        'generate_type': fields[9],            # 产生类型
-                        'alarm_point': fields[10],             # 告警点位
-                        'alarm_rule': fields[11],              # 告警规则
-                        'alarm_threshold': fields[12],         # 告警阈值
-                        'alarm_value': fields[13],             # 告警值
-                        'recovery_reason': fields[14],         # 恢复原因
-                        'alarm_type': fields[15],              # 告警类型
-                        'alarm_template': fields[16],          # 告警模板
-                        'is_processed': False,                 # 处理状态
-                        'is_current': False,                   # 是否为当前告警
-                        'conclusion': []                       # 收敛结论
+                        'level': fields[0],  # 告警等级
+                        'alarm_msg': fields[1],  # 告警内容
+                        'alarm_time': fields[2],  # 告警时间
+                        'id': fields[3],  # 告警编号
+                        'location_full': fields[4],  # 告警位置全名
+                        'location': fields[5],  # 告警位置
+                        'subject': fields[6],  # 告警主体
+                        'subject_short': fields[7],  # 告警主体短名称
+                        'device_type': fields[8],  # 设备类型
+                        'generate_type': fields[9],  # 产生类型
+                        'alarm_point': fields[10],  # 告警点位
+                        'alarm_rule': fields[11],  # 告警规则
+                        'alarm_threshold': fields[12],  # 告警阈值
+                        'alarm_value': fields[13],  # 告警值
+                        'recovery_reason': fields[14],  # 恢复原因
+                        'alarm_type': fields[15],  # 告警类型
+                        'alarm_template': fields[16],  # 告警模板
+                        'is_processed': False,  # 处理状态
+                        'is_current': False,  # 是否为当前告警
+                        'conclusion': []  # 收敛结论
                     }
                     self.alarm_input.append(alarm_data)
-        
+
         print(f"Loaded {len(self.alarm_input)} alarms")
         if len(self.alarm_input) > 0:
             print("Sample alarm:", self.alarm_input[0])
@@ -233,9 +211,9 @@ class AlarmInputAPI(Singleton):
                 while self.current_index < len(self.alarm_input):
                     yield self.alarm_input[self.current_index]
                     self.current_index += 1
-            
+
             self._iterator = alarm_generator()
-        
+
         return self._iterator
 
     def reset(self):
@@ -263,10 +241,10 @@ def destroy_all_instances():
 
 def get_instance(api_class):
     """获取指定API类的实例
-    
+
     Args:
         api_class: API类（GraphAPI、DeviceAPI等）
-    
+
     Returns:
         对应的API实例
     """

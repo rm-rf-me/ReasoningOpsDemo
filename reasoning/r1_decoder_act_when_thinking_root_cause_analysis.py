@@ -105,7 +105,7 @@ class StreamingDecoder:
                 model=os.environ['DEEPSEEK_R1_MODEL_NAME'],
                 messages=messages,
                 stream=True,
-                temperature=0.2,
+                temperature=0.4,
                 timeout=60,  # 增加超时时间
                 # headers={"Connection": "keep-alive"}  # 保持长连接
         )

@@ -341,6 +341,42 @@
                                     </div>
                                 </div>
 
+                                <!-- 推理内容 -->
+                                <div class="reasoning-content">
+                                    <div class="reasoning-cards">
+                                        <el-card v-for="(card, index) in reasoningCards"
+                                                :key="index"
+                                                :class="['reasoning-card', card.type]"
+                                                shadow="never">
+                                            <div slot="header">
+                                                <i :class="getCardIcon(card.type)"></i>
+                                                [[ getCardTitle(card.type) ]]
+                                            </div>
+                                            <div class="card-content" v-html="formatContent(card.content)"></div>
+                                        </el-card>
+                                    </div>
+
+                                    <!-- 优化输入框布局 -->
+                                    <div class="reasoning-input">
+                                        <el-input
+                                            v-model="userInput"
+                                            type="textarea"
+                                            :autosize="{ minRows: 1, maxRows: 3 }"
+                                            placeholder="输入消息，按 Ctrl + Enter 发送"
+                                            :disabled="processing"
+                                            @keyup.enter.native.ctrl="sendMessage">
+                                        </el-input>
+                                        <el-button
+                                            type="primary"
+                                            size="medium"
+                                            icon="el-icon-s-promotion"
+                                            :loading="processing"
+                                            :disabled="!userInput.trim()"
+                                            @click="sendMessage">
+                                            发送
+                                        </el-button>
+                                    </div>
+
                                 <!-- 添加辅助信息弹窗 -->
                                 <el-dialog
                                     title="编辑辅助信息"

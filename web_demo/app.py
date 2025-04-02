@@ -77,9 +77,10 @@ def next_alarm():
 
 @socketio.on('process_current_alarm')
 def process_current_alarm(data=None):
+# def process_current_alarm():
     """对当前告警进行AI推理处理"""
     global current_alarm
-    
+    # breakpoint()
     if not current_alarm:
         logger.warning("No current alarm to process")
         socketio.emit('reasoning_error', {'error': '没有当前处理的告警'})
@@ -120,7 +121,7 @@ def process_current_alarm(data=None):
             
             socketio.emit('reasoning_complete', {
                 'result': reasoning_result,
-                'reasoning_text': reasoning_history,
+                'reasoning_text': all_reasoning_results,
                 'all_alarms': updated_alarms,
                 'reasoning_steps': reasoning_steps
             })
