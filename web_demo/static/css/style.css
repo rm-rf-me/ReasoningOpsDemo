@@ -1322,3 +1322,82 @@ button {
     height: calc(100vh - 220px);
     overflow: auto;
 }
+
+/* 辅助信息区域样式 */
+.auxiliary-info-section {
+    margin: 15px 0;
+    padding: 0 5px;
+}
+
+.info-item {
+    margin-bottom: 12px;
+}
+
+.info-label {
+    font-size: 13px;
+    color: #606266;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+/* 调整分割线样式 */
+.el-divider--horizontal {
+    margin: 15px 0;
+}
+
+.el-divider__text {
+    font-size: 14px;
+    font-weight: 500;
+    color: #409EFF;
+}
+
+/* 调整选择器和输入框样式 */
+.auxiliary-info-section .el-select,
+.auxiliary-info-section .el-textarea {
+    width: 100%;
+}
+
+.auxiliary-info-section .el-textarea__inner {
+    font-size: 13px;
+}
+
+/* 调整标签样式 */
+.el-select__tags .el-tag {
+    margin-right: 4px;
+    margin-bottom: 2px;
+}
+
+/* 当前告警信息下的操作按钮 */
+.alarm-actions {
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* 辅助信息弹窗样式 */
+.auxiliary-info-dialog {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: 0 10px;
+}
+
+.auxiliary-info-dialog .info-item {
+    margin-bottom: 20px;
+}
+
+.auxiliary-info-dialog .info-label {
+    font-size: 14px;
+    color: #606266;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+/* 调整弹窗内输入框和选择器样式 */
+.auxiliary-info-dialog .el-select,
+.auxiliary-info-dialog .el-textarea {
+    width: 100%;
+}
+
+.auxiliary-info-dialog .el-textarea__inner {
+    font-size: 14px;
+}

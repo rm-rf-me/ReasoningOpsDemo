@@ -330,44 +330,100 @@
                                         <span class="alarm-id">#[[ currentAlarm.id ]]</span>
                                     </div>
                                     <div class="alarm-content">[[ currentAlarm.alarm_msg ]]</div>
-                                </div>
-
-                                <!-- 推理内容 -->
-                                <div class="reasoning-content">
-                                    <div class="reasoning-cards">
-                                        <el-card v-for="(card, index) in reasoningCards"
-                                                :key="index"
-                                                :class="['reasoning-card', card.type]"
-                                                shadow="never">
-                                            <div slot="header">
-                                                <i :class="getCardIcon(card.type)"></i>
-                                                [[ getCardTitle(card.type) ]]
-                                            </div>
-                                            <div class="card-content" v-html="formatContent(card.content)"></div>
-                                        </el-card>
-                                    </div>
-                                    
-                                    <!-- 优化输入框布局 -->
-                                    <div class="reasoning-input">
-                                        <el-input
-                                            v-model="userInput"
-                                            type="textarea"
-                                            :autosize="{ minRows: 1, maxRows: 3 }"
-                                            placeholder="输入消息，按 Ctrl + Enter 发送"
-                                            :disabled="processing"
-                                            @keyup.enter.native.ctrl="sendMessage">
-                                        </el-input>
+                                    <div class="alarm-actions">
                                         <el-button 
                                             type="primary" 
-                                            size="medium"
-                                            icon="el-icon-s-promotion"
-                                            :loading="processing"
-                                            :disabled="!userInput.trim()"
-                                            @click="sendMessage">
-                                            发送
+                                            size="small" 
+                                            icon="el-icon-edit"
+                                            @click="showAuxiliaryInfoDialog">
+                                            编辑辅助信息
                                         </el-button>
                                     </div>
                                 </div>
+
+                                <!-- 添加辅助信息弹窗 -->
+                                <el-dialog
+                                    title="编辑辅助信息"
+                                    :visible.sync="auxiliaryInfoDialogVisible"
+                                    width="60%"
+                                    :before-close="handleDialogClose">
+                                    
+                                    <div class="auxiliary-info-dialog">
+                                        <!-- BA规则选择器 -->
+                                        <div class="info-item">
+                                            <div class="info-label">BA规则</div>
+                                            <el-select 
+                                                v-model="selectedBARules" 
+                                                multiple 
+                                                collapse-tags
+                                                placeholder="选择适用的BA规则"
+                                                style="width: 100%">
+                                                <el-option
+                                                    v-for="item in baRuleOptions"
+                                                    :key="item.value"
+                                                    :label="item.label"
+                                                    :value="item.value">
+                                                </el-option>
+                                            </el-select>
+                                        </div>
+                                        
+                                        <!-- 设备信息输入框 -->
+                                        <div class="info-item">
+                                            <div class="info-label">设备信息</div>
+                                            <el-input
+                                                type="textarea"
+                                                :rows="3"
+                                                placeholder="输入相关设备信息"
+                                                v-model="deviceInfo">
+                                            </el-input>
+                                        </div>
+                                        
+                                        <!-- 拓扑信息输入框 -->
+                                        <div class="info-item">
+                                            <div class="info-label">拓扑信息</div>
+                                            <el-input
+                                                type="textarea"
+                                                :rows="3"
+                                                placeholder="输入相关拓扑信息"
+                                                v-model="graphInfo">
+                                            </el-input>
+                                        </div>
+                                        
+                                        <!-- 专家经验输入框 -->
+                                        <div class="info-item">
+                                            <div class="info-label">专家经验</div>
+                                            <el-input
+                                                type="textarea"
+                                                :rows="3"
+                                                placeholder="输入相关专家经验"
+                                                v-model="expertKnowledge">
+                                            </el-input>
+                                        </div>
+                                        
+                                        <!-- 场景分类选择器 -->
+                                        <div class="info-item">
+                                            <div class="info-label">场景分类</div>
+                                            <el-select 
+                                                v-model="selectedScenarios" 
+                                                multiple 
+                                                collapse-tags
+                                                placeholder="选择适用的场景分类"
+                                                style="width: 100%">
+                                                <el-option
+                                                    v-for="item in scenarioOptions"
+                                                    :key="item.value"
+                                                    :label="item.label"
+                                                    :value="item.value">
+                                                </el-option>
+                                            </el-select>
+                                        </div>
+                                    </div>
+                                    
+                                    <span slot="footer" class="dialog-footer">
+                                        <el-button @click="auxiliaryInfoDialogVisible = false">取消</el-button>
+                                        <el-button type="primary" @click="saveAuxiliaryInfo">确定</el-button>
+                                    </span>
+                                </el-dialog>
                             </el-card>
                         </el-col>
                     </el-row>

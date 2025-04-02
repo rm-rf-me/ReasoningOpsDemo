@@ -46,6 +46,23 @@ const app = new Vue({
         historyAlarms: [],
         userInput: '',
         processingNext: false,
+        selectedBARules: [],
+        baRuleOptions: [],
+        deviceInfo: '',
+        graphInfo: '',
+        expertKnowledge: '',
+        selectedScenarios: [],
+        scenarioOptions: [
+            { value: 'cold_tower_switch', label: '冷塔切机' },
+            { value: 'cooling_pump_failure', label: '冷却泵故障' },
+            { value: 'chiller_failure', label: '冷机故障' },
+            { value: 'valve_malfunction', label: '阀门故障' },
+            { value: 'temperature_abnormal', label: '温度异常' },
+            { value: 'pressure_abnormal', label: '压力异常' },
+            { value: 'flow_abnormal', label: '流量异常' },
+            { value: 'control_system_error', label: '控制系统异常' }
+        ],
+        auxiliaryInfoDialogVisible: false
     },
     methods: {
         initSocket() {
@@ -551,10 +568,11 @@ const app = new Vue({
             this.processingNext = true;
             this.socket.emit('next_alarm');
             
-            // 清空推理卡片
+            // 清空推理卡片和辅助信息
             this.reasoningCards = [];
             this.reasoningText = '';
             this.tempReasoningText = '';
+            this.clearAuxiliaryInfo();
         },
         
         processCurrentAlarm() {
@@ -564,13 +582,61 @@ const app = new Vue({
             }
             
             this.processing = true;
-            this.socket.emit('process_current_alarm');
+            
+            // 构建包含辅助信息的请求
+            const requestData = {
+                auxiliaryInfo: {
+                    baRules: this.selectedBARules,
+                    deviceInfo: this.deviceInfo,
+                    graphInfo: this.graphInfo,
+                    expertKnowledge: this.expertKnowledge,
+                    scenarios: this.selectedScenarios
+                }
+            };
+            
+            this.socket.emit('process_current_alarm', requestData);
             
             // 清空推理卡片
             this.reasoningCards = [];
             this.reasoningText = '';
             this.tempReasoningText = '';
         },
+
+        fetchBARules() {
+            console.log("Fetching BA rules...");
+            this.socket.emit('get_ba_rules');
+        },
+        
+        clearAuxiliaryInfo() {
+            // 清空辅助信息
+            this.selectedBARules = [];
+            this.deviceInfo = '';
+            this.graphInfo = '';
+            this.expertKnowledge = '';
+            this.selectedScenarios = [];
+        },
+
+        showAuxiliaryInfoDialog() {
+            this.auxiliaryInfoDialogVisible = true;
+            // 重新获取BA规则，确保数据最新
+            this.fetchBARules();
+        },
+        
+        handleDialogClose(done) {
+            this.$confirm('确认关闭？未保存的内容将会丢失')
+                .then(_ => {
+                    done();
+                })
+                .catch(_ => {});
+        },
+        
+        saveAuxiliaryInfo() {
+            this.auxiliaryInfoDialogVisible = false;
+            this.$message({
+                message: '辅助信息已保存',
+                type: 'success'
+            });
+        }
     },
     computed: {
         buttonText() {
@@ -796,5 +862,28 @@ const app = new Vue({
             this.processingNext = false;
             this.$message.error(data.error);
         });
+
+        // 修改BA规则监听
+        this.socket.on('ba_rules_update', (data) => {
+            console.log("Received BA rules:", data);
+            if (data && data.rules && Array.isArray(data.rules)) {
+                this.baRuleOptions = data.rules.map(rule => ({
+                    value: rule.id,
+                    label: rule.name
+                }));
+                console.log("Mapped BA rule options:", this.baRuleOptions);
+            } else {
+                console.error("Invalid BA rules data:", data);
+            }
+        });
+        
+        // 添加BA规则错误监听
+        this.socket.on('ba_rules_error', (data) => {
+            console.error("BA rules error:", data);
+            this.$message.error(`获取BA规则失败: ${data.error}`);
+        });
+        
+        // 初始化时获取BA规则
+        this.fetchBARules();
     }
 });

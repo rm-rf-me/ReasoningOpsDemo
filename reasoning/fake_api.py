@@ -101,20 +101,43 @@ Please answer the question in text format, or reply "No answer" if there is no a
 
 class BARuleAPI(Singleton):
     def __init__(self):
-        self.all_rules = []
-        self._read_rules()
+        self.rules = []
+        self._load_rules()
 
-    def _read_rules(self):
-        """读取预设的运维规则数据"""
-        fake_file = os.path.join(os.path.dirname(__file__), 'ba_data.txt')
-        try:
-            with open(fake_file, 'r', encoding='utf-8') as f:
-                # 读取所有规则并格式化为JSON结构
-                rules_text = f.read().strip()
-                self.all_rules.append(rules_text)
-        except Exception as e:
-            print(f"Error reading BA rules: {e}")
-            self.all_rules = []
+    def _load_rules(self):
+        """加载BA规则"""
+        # 示例规则数据
+        self.rules = [
+            {
+                "id": "rule_001",
+                "name": "冷源故障切换规则",
+                "description": "当单套冷源出现故障时，系统应启用运行时间最短的备用冷源。"
+            },
+            {
+                "id": "rule_002",
+                "name": "冷却泵压力异常处理规则",
+                "description": "当冷却泵出口压力低于阈值时，应检查管路是否泄漏或堵塞。"
+            },
+            {
+                "id": "rule_003",
+                "name": "冷机启停顺序规则",
+                "description": "冷机启动顺序应按照运行时间最短优先原则，停机顺序应按照运行时间最长优先原则。"
+            },
+            {
+                "id": "rule_004",
+                "name": "群控系统手自动切换规则",
+                "description": "当设备从自动模式切换到手动模式时，应记录操作人员和切换原因。"
+            },
+            {
+                "id": "rule_005",
+                "name": "温度异常处理规则",
+                "description": "当温度超出正常范围时，应检查相关设备的运行状态和控制参数。"
+            }
+        ]
+
+    def get_all_rules(self):
+        """获取所有BA规则"""
+        return self.rules
 
     def query(self, description: str, max_retry: int = 3) -> str:
         llm = LLM()
@@ -124,7 +147,7 @@ class BARuleAPI(Singleton):
 你需要根据描述的情况，从运维规则库中找出相关的规则内容。
 
 运维规则库的内容如下：
-{json.dumps(self.all_rules, ensure_ascii=False)}
+{json.dumps(self.rules, ensure_ascii=False)}
 
 请根据以下描述查找相关规则：
 {description}

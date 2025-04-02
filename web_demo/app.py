@@ -3,7 +3,7 @@ import traceback
 from flask import Flask, render_template, jsonify
 from flask_socketio import SocketIO, emit
 from threading import Lock
-from reasoning.fake_api import create_all_instances
+from reasoning.fake_api import create_all_instances, get_instance, BARuleAPI
 from AlarmReasoningEnv import AlarmReasoningEnv
 from functools import partial
 import time
@@ -76,7 +76,7 @@ def next_alarm():
     })
 
 @socketio.on('process_current_alarm')
-def process_current_alarm():
+def process_current_alarm(data=None):
     """对当前告警进行AI推理处理"""
     global current_alarm
     
@@ -86,6 +86,12 @@ def process_current_alarm():
         return
     
     logger.info(f"Processing current alarm at {time.strftime('%H:%M:%S')}: {current_alarm}")
+    
+    # 提取辅助信息
+    auxiliary_info = {}
+    if data and 'auxiliaryInfo' in data:
+        auxiliary_info = data['auxiliaryInfo']
+        logger.info(f"Received auxiliary info: {auxiliary_info}")
     
     def process_task():
         try:
@@ -161,6 +167,29 @@ def handle_connect():
     current_alarm = env.get_next_not_processed_alarm()
     if current_alarm:
         emit('current_alarm', current_alarm)
+
+@socketio.on('get_ba_rules')
+def get_ba_rules():
+    """获取BA规则列表"""
+    try:
+        # 获取BA规则API实例
+        ba_rule_api = get_instance(BARuleAPI)
+        
+        # 获取所有规则
+        rules = ba_rule_api.get_all_rules()
+        
+        # 添加调试日志
+        logger.info(f"Sending BA rules to client: {rules}")
+        
+        # 发送规则列表到前端
+        socketio.emit('ba_rules_update', {
+            'rules': rules
+        })
+        
+    except Exception as e:
+        error_msg = f"Error getting BA rules: {str(e)}\n{traceback.format_exc()}"
+        logger.error(error_msg)
+        socketio.emit('ba_rules_error', {'error': error_msg})
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)
