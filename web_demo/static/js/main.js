@@ -200,18 +200,45 @@ const app = new Vue({
 
         getConvergenceTitle(conclusion) {
             if (!conclusion) return '待处理';
-            switch (conclusion.convergence_type) {
+            
+            // 确保收敛类型存在
+            const type = conclusion.convergence_type;
+            if (!type || typeof type !== 'string') {
+                return '待收敛';
+            }
+            
+            // 标准化类型名称
+            const normalizedType = type.trim();
+            
+            switch (normalizedType) {
                 case '历史收敛': return '已收敛';
                 case '未来收敛': return '预期收敛';
+                case '实时收敛': return '实时收敛';
+                case '未知': return '待收敛';
                 default: return '待收敛';
             }
         },
 
         getConvergenceTagType(type) {
-            switch (type) {
-                case '历史收敛': return 'success';
-                case '未来收敛': return 'warning';
-                default: return 'info';
+            // 确保类型存在且为字符串
+            if (!type || typeof type !== 'string') {
+                return 'info';
+            }
+            
+            // 标准化类型名称，移除可能的空格
+            const normalizedType = type.trim();
+            
+            switch (normalizedType) {
+                case '历史收敛':
+                    return 'success';
+                case '未来收敛':
+                    return 'warning';
+                case '实时收敛':
+                    return 'primary';
+                case '未知':
+                    return 'info';
+                default:
+                    return 'info';
             }
         },
 
@@ -226,69 +253,171 @@ const app = new Vue({
         },
         
         parseReasoningText(text) {
-            console.log('Parsing reasoning text:', text);
-            const cards = [];
-            let currentCard = null;
+            if (!text) return [];
             
+            // 改进的解析逻辑
+            const parts = [];
+            let currentThink = '';
+            let currentAction = '';
+            let currentResult = '';
+            let currentAnswer = '';
+            
+            // 状态跟踪
+            let inThink = false;
+            let inAction = false;
+            let inResult = false;
+            let inAnswer = false;
+            
+            // 按行处理文本
             const lines = text.split('\n');
-            for (let line of lines) {
-                if (line.includes('历史未收敛告警：')) {
-                    cards.push({
-                        type: 'history',
-                        content: line
-                    });
-                    continue;
-                }
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
                 
+                // 处理思考开始标签
                 if (line.includes('<think>')) {
-                    if (currentCard) cards.push(currentCard);
-                    currentCard = { type: 'think', content: line.replace(/<\/?think>/g, '') };
-                    continue;
+                    inThink = true;
+                    // 移除标签，保留内容
+                    currentThink = line.replace('<think>', '') + '\n';
                 }
-                
-                if (line.match(/^Action:/)) {
-                    if (currentCard) cards.push(currentCard);
-                    currentCard = { type: 'action', content: line.replace('Action:', '').trim() };
-                    continue;
+                // 处理思考结束标签
+                else if (line.includes('</think>')) {
+                    inThink = false;
+                    // 移除标签，保留内容
+                    currentThink += line.replace('</think>', '') + '\n';
+                    // 添加思考卡片
+                    parts.push({
+                        type: 'think',
+                        content: currentThink.trim()
+                    });
+                    currentThink = '';
                 }
-                
-                if (line.match(/^Result:/)) {
-                    if (currentCard) cards.push(currentCard);
-                    currentCard = { type: 'result', content: line.replace('Result:', '').trim() };
-                    continue;
-                }
-                
-                if (line.includes('<answer>')) {
-                    if (currentCard) cards.push(currentCard);
-                    currentCard = { type: 'conclusion', content: '' };
-                    continue;
-                }
-                
-                if (currentCard && currentCard.type === 'conclusion' && line.includes('"convergence_type"')) {
-                    try {
-                        const jsonStart = text.indexOf('[', text.indexOf('<answer>'));
-                        const jsonEnd = text.indexOf(']', jsonStart) + 1;
-                        if (jsonStart !== -1 && jsonEnd !== -1) {
-                            const jsonStr = text.substring(jsonStart, jsonEnd);
-                            console.log('Extracted JSON:', jsonStr);
-                            currentCard.content = JSON.parse(jsonStr);
+                // 处理动作开始标签 - 只在思考内部有效
+                else if (line.includes('<action>')) {
+                    if (inThink) {
+                        // 如果当前有思考内容，先保存思考卡片
+                        if (currentThink.trim()) {
+                            parts.push({
+                                type: 'think',
+                                content: currentThink.trim()
+                            });
+                            currentThink = '';
                         }
-                    } catch (e) {
-                        console.error('Error parsing conclusion JSON:', e);
-                        currentCard.content = line;
+                        
+                        inAction = true;
+                        currentAction = line + '\n';
+                    } else if (inAnswer) {
+                        // 在答案中的动作标签应被忽略，作为普通文本处理
+                        currentAnswer += line + '\n';
                     }
-                    continue;
                 }
-                
-                if (currentCard && currentCard.type !== 'conclusion') {
-                    currentCard.content += line + '\n';
+                // 处理动作结束标签
+                else if (line.includes('</action>')) {
+                    if (inThink && inAction) {
+                        inAction = false;
+                        currentAction += line + '\n';
+                        // 添加动作卡片
+                        parts.push({
+                            type: 'action',
+                            content: currentAction.trim()
+                        });
+                        currentAction = '';
+                    } else if (inAnswer) {
+                        // 在答案中的动作标签应被忽略，作为普通文本处理
+                        currentAnswer += line + '\n';
+                    }
+                }
+                // 处理结果开始标签 - 只在思考内部有效
+                else if (line.includes('<result>')) {
+                    if (inThink) {
+                        inResult = true;
+                        currentResult = line + '\n';
+                    } else if (inAnswer) {
+                        // 在答案中的结果标签应被忽略，作为普通文本处理
+                        currentAnswer += line + '\n';
+                    }
+                }
+                // 处理结果结束标签
+                else if (line.includes('</result>')) {
+                    if (inThink && inResult) {
+                        inResult = false;
+                        currentResult += line + '\n';
+                        // 添加结果卡片
+                        parts.push({
+                            type: 'result',
+                            content: currentResult.trim()
+                        });
+                        currentResult = '';
+                    } else if (inAnswer) {
+                        // 在答案中的结果标签应被忽略，作为普通文本处理
+                        currentAnswer += line + '\n';
+                    }
+                }
+                // 处理答案开始标签
+                else if (line.includes('<answer>')) {
+                    inAnswer = true;
+                    // 如果当前有思考内容，先保存思考卡片
+                    if (currentThink.trim()) {
+                        parts.push({
+                            type: 'think',
+                            content: currentThink.trim()
+                        });
+                        currentThink = '';
+                    }
+                    currentAnswer = line.replace('<answer>', '') + '\n';
+                }
+                // 处理答案结束标签
+                else if (line.includes('</answer>')) {
+                    inAnswer = false;
+                    currentAnswer += line.replace('</answer>', '') + '\n';
+                    // 添加答案卡片
+                    parts.push({
+                        type: 'conclusion',
+                        content: currentAnswer.trim()
+                    });
+                    currentAnswer = '';
+                }
+                // 处理普通内容
+                else {
+                    if (inThink && !inAction && !inResult) {
+                        currentThink += line + '\n';
+                    } else if (inAction) {
+                        currentAction += line + '\n';
+                    } else if (inResult) {
+                        currentResult += line + '\n';
+                    } else if (inAnswer) {
+                        currentAnswer += line + '\n';
+                    }
                 }
             }
             
-            if (currentCard) cards.push(currentCard);
+            // 处理可能的未闭合标签
+            if (currentThink.trim()) {
+                parts.push({
+                    type: 'think',
+                    content: currentThink.trim()
+                });
+            }
+            if (currentAction.trim()) {
+                parts.push({
+                    type: 'action',
+                    content: currentAction.trim()
+                });
+            }
+            if (currentResult.trim()) {
+                parts.push({
+                    type: 'result',
+                    content: currentResult.trim()
+                });
+            }
+            if (currentAnswer.trim()) {
+                parts.push({
+                    type: 'conclusion',
+                    content: currentAnswer.trim()
+                });
+            }
             
-            console.log('Parsed cards:', cards);
-            return cards;
+            return parts;
         },
         
         parseHistoryAlarms(text) {
@@ -307,104 +436,78 @@ const app = new Vue({
         },
         
         getCardIcon(type) {
-            const icons = {
-                'think': 'el-icon-chat-dot-square',
-                'action': 'el-icon-coordinate',
-                'result': 'el-icon-document-checked',
-                'conclusion': 'el-icon-success',
-                'user': 'el-icon-user',
-                'assistant': 'el-icon-service'
+            const iconMap = {
+                'think': 'el-icon-loading',
+                'action': 'el-icon-connection',
+                'result': 'el-icon-data-analysis',
+                'conclusion': 'el-icon-check',
+                'info': 'el-icon-info',
+                'success': 'el-icon-success',
+                'warning': 'el-icon-warning',
+                'error': 'el-icon-error'
             };
-            return icons[type] || 'el-icon-info';
+            return iconMap[type] || 'el-icon-info';
         },
         
         getCardTitle(type) {
-            const titles = {
+            const titleMap = {
                 'think': '推理思考',
                 'action': '执行动作',
                 'result': '执行结果',
                 'conclusion': '最终结论',
-                'user': '用户消息',
-                'assistant': '助手回复'
+                'info': '信息',
+                'success': '成功',
+                'warning': '警告',
+                'error': '错误'
             };
-            return titles[type] || '未知类型';
+            return titleMap[type] || '信息';
         },
         
         formatContent(content) {
-            if (content.includes('历史未收敛告警：')) {
-                const alarms = content.replace('历史未收敛告警：', '').trim().split(' ');
-                return `
-                    <div class="history-alarms">
-                        <el-timeline>
-                            ${alarms.map(alarm => {
-                                const [id, ...msg] = alarm.split(':');
-                                return `
-                                    <el-timeline-item type="warning">
-                                        <div class="history-alarm-item">
-                                            <span class="alarm-id">${id}</span>
-                                            <div class="alarm-msg">${msg.join(':').trim()}</div>
-                                        </div>
-                                    </el-timeline-item>
-                                `;
-                            }).join('')}
-                        </el-timeline>
-                    </div>
-                `;
+            if (!content) return '';
+            
+            // 移除标签
+            let formatted = content
+                .replace(/<\/?think>/g, '')
+                .replace(/<\/?action>/g, '')
+                .replace(/<\/?result>/g, '')
+                .replace(/<\/?answer>/g, '');
+            
+            // 格式化JSON
+            if (formatted.includes('{') && formatted.includes('}')) {
+                try {
+                    // 尝试查找并格式化JSON部分
+                    const jsonRegex = /{[\s\S]*?}/g;
+                    const matches = formatted.match(jsonRegex);
+                    
+                    if (matches) {
+                        for (const match of matches) {
+                            try {
+                                const parsed = JSON.parse(match);
+                                const formatted = JSON.stringify(parsed, null, 2);
+                                content = content.replace(match, '<pre class="json-code">' + formatted + '</pre>');
+                            } catch (e) {
+                                // 如果解析失败，保持原样
+                            }
+                        }
+                    }
+                } catch (e) {
+                    // 解析失败，保持原样
+                }
             }
             
-            if (Array.isArray(content)) {
-                return content.map(item => {
-                    // 收敛关系标记
-                    const convergenceMark = item.convergence_type === '历史收敛' && item.converged_alarm_id 
-                        ? `<el-tag size="mini" type="danger" class="converge-mark" effect="dark">
-                            <i class="el-icon-connection"></i> 收敛自 #${item.converged_alarm_id}
-                           </el-tag>`
-                        : '';
-                    
-                    // 关联告警标记
-                    const relatedAlarmMark = item.related_alarm_id 
-                        ? `<el-tag size="mini" type="info" class="related-mark">
-                            <i class="el-icon-link"></i> 关联告警 #${item.related_alarm_id}
-                           </el-tag>`
-                        : '';
-                    
-                    // 收敛目标标记
-                    const convergingMark = item.converging_alarm_id 
-                        ? `<el-tag size="mini" type="success" class="converging-mark">
-                            <i class="el-icon-arrow-right"></i> 收敛至 #${item.converging_alarm_id}
-                           </el-tag>`
-                        : '';
-                    
-                    return `
-                        <div class="conclusion-item">
-                            <div class="conclusion-header">
-                                <el-tag size="small" type="${this.getConvergenceTagType(item.convergence_type)}">
-                                    <i class="el-icon-${item.convergence_type === '历史收敛' ? 'success' : 'info'}"></i>
-                                    ${item.convergence_type}
-                                </el-tag>
-                                ${convergenceMark}
-                                ${relatedAlarmMark}
-                                ${convergingMark}
-                            </div>
-                            <el-descriptions :column="1" border size="small" class="conclusion-descriptions">
-                                <el-descriptions-item label="推理过程" class="reasoning-process">
-                                    <div class="reasoning-text">${item.reasoning}</div>
-                                </el-descriptions-item>
-                                <el-descriptions-item label="最终结论">
-                                    <div class="highlight-conclusion">
-                                        <i class="el-icon-finished"></i> ${item.conclusion}
-                                    </div>
-                                </el-descriptions-item>
-                            </el-descriptions>
-                        </div>
-                    `;
-                }).join('');
-            }
+            // 高亮API调用
+            formatted = formatted.replace(/GraphAPI\.query\("([^"]*)"\)/g, 
+                '<span class="api-call">GraphAPI.query</span>("<span class="api-param">$1</span>")');
+            formatted = formatted.replace(/DeviceAPI\.query\("([^"]*)"\)/g, 
+                '<span class="api-call">DeviceAPI.query</span>("<span class="api-param">$1</span>")');
+            formatted = formatted.replace(/BARuleAPI\.query\("([^"]*)"\)/g, 
+                '<span class="api-call">BARuleAPI.query</span>("<span class="api-param">$1</span>")');
             
-            return content
-                .replace(/\n/g, '<br>')
-                .replace(/(#\d+)/g, '<span class="highlight-id">$1</span>')
-                .replace(/(成功|失败)/g, '<span class="highlight-status">$1</span>');
+            // 转换换行符为HTML换行
+            formatted = formatted.replace(/\n/g, '<br>');
+            
+            return formatted;
         },
         
         sendMessage() {
@@ -426,6 +529,21 @@ const app = new Vue({
                 const container = document.querySelector('.reasoning-cards');
                 container.scrollTop = container.scrollHeight;
             });
+        },
+
+        debugConvergenceInfo(row) {
+            if (row && row.conclusion && row.conclusion.length > 0) {
+                console.log('收敛信息:', {
+                    id: row.id,
+                    hasConclusion: !!row.conclusion,
+                    conclusionLength: row.conclusion.length,
+                    firstConclusion: row.conclusion[0],
+                    convergenceType: row.conclusion[0].convergence_type
+                });
+            } else {
+                console.log('无收敛信息:', row);
+            }
+            return '';
         }
     },
     computed: {

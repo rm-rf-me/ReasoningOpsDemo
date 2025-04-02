@@ -87,12 +87,16 @@ def parse_generations(generations: str) -> tuple[DecodeState, Dict]:
 
 
 class ActWhenThinking:
-    def __init__(self, handle_action=None):
+    def __init__(self, handle_action=None, callback_funcs=None):
         logger.info("Initializing ActWhenThinking")
         self.handle_action = handle_action
         self.action_handlers = []
         self.init_prompt_handlers = []
         self.update_prompt_handlers = []
+        self.callback_funcs = callback_funcs
+
+    def set_callback_funcs(self, callback_funcs):
+        self.callback_funcs = callback_funcs
 
     def register_init_prompt(self, func):
         # 注册事件
@@ -111,7 +115,10 @@ class ActWhenThinking:
     def handle_action_exec(self, action):
         logger.info(f"Executing action: {action}")
         try:
-            result = self.handle_action(action)
+            if self.callback_funcs:
+                result = self.handle_action(action, self.callback_funcs)
+            else:
+                result = self.handle_action(action)
             logger.debug(f"Action result: {result}")
             return result
         except Exception as e:

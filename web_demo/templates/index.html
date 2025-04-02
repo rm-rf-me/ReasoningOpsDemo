@@ -216,6 +216,8 @@
                                                     [[ scope.row.conclusion[0].convergence_type ]]
                                                 </el-tag>
                                                 <el-tag v-else size="small" type="info">待收敛</el-tag>
+                                                <!-- 添加调试信息，仅在开发环境使用 -->
+                                                <span style="display: none;">[[ debugConvergenceInfo(scope.row) ]]</span>
                                             </div>
                                         </template>
                                     </el-table-column>

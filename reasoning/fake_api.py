@@ -50,19 +50,18 @@ class GraphAPI(Singleton):
         llm = LLM()
 
         prompt = f"""
-        你是一个专业的暖通系统运维专家。
-        你需要根据描述的情况，从图结构中找出相关的设备间的拓扑关系，其中图是由二元组表示。
-        图结构的内容如下（JSON格式）：
-        {self.graph}
+你是一个专业的暖通系统运维专家。
+你需要根据描述的情况，从图结构中找出相关的设备间的拓扑关系，其中图是由二元组表示。
+图结构的内容如下（JSON格式）：
+{self.graph}
 
-        请根据以下描述查找相关设备间的拓扑关系：
-        {description}
+请根据以下描述查找相关设备间的拓扑关系：
+{description}
 
-        请直接回复设备间的拓扑关系，如果没有找到相关设备间的拓扑关系，请回复"没有找到相关拓扑关系"。
+请直接回复设备间的拓扑关系。
         """
         res = llm.query(prompt, model_name="gpt-4o")
-
-
+        breakpoint()
         return res
 
 
@@ -77,26 +76,22 @@ class DeviceAPI(Singleton):
         with open(fake_file, 'r', encoding='utf-8') as f:
             # 读取所有设备并格式化为JSON结构
             device_text = f.read().strip()
-            self.device_info = [{
-                "device_name_Chinese":"B2区_BA_开关阀门_2号V4开关阀",
-                "device_name": "B2-U2-V4",
-                "content": device_text
-            }]
+            self.device_info.append(json.loads(device_text))
 
 
     def query(self, description: str, max_retry: int = 3) -> str:
         llm = LLM()
 
         prompt = f"""
-        You are a helpful assistant that can answer questions about devices.
-        You are given a description of a device and you need to answer the question.
-        All devices's information is stored in the following json format:
-        {self.device_info}
+You are a helpful assistant that can answer questions about devices.
+You are given a description of a device and you need to answer the question.
+All devices's information is stored in the following json format:
+{self.device_info}
 
-        Please find the device information from the json and answer the question.
-        Description: {description}
+Please find the device information from the json and answer the question.
+Description: {description}
 
-        Please answer the question in text format, or reply "No answer" if there is no answer.
+Please answer the question in text format, or reply "No answer" if there is no answer.
         """
         res = llm.query(prompt, model_name="gpt-4o")
 
@@ -116,12 +111,7 @@ class BARuleAPI(Singleton):
             with open(fake_file, 'r', encoding='utf-8') as f:
                 # 读取所有规则并格式化为JSON结构
                 rules_text = f.read().strip()
-                self.all_rules = [{
-                    "rule_id": "R001",
-                    "type": "冷冻单元故障处理",
-                    "content": rules_text,
-                    "keywords": ["冷冻单元", "故障", "备用", "启用"]
-                }]
+                self.all_rules.append(rules_text)
         except Exception as e:
             print(f"Error reading BA rules: {e}")
             self.all_rules = []
@@ -130,21 +120,22 @@ class BARuleAPI(Singleton):
         llm = LLM()
 
         prompt = f"""
-        你是一个专业的暖通系统运维专家。
-        你需要根据描述的情况，从运维规则库中找出相关的规则内容。
-        
-        运维规则库的内容如下（JSON格式）：
-        {json.dumps(self.all_rules, ensure_ascii=False, indent=2)}
+你是一个专业的暖通系统运维专家。
+你需要根据描述的情况，从运维规则库中找出相关的规则内容。
 
-        请根据以下描述查找相关规则：
-        {description}
+运维规则库的内容如下：
+{json.dumps(self.all_rules, ensure_ascii=False)}
 
-        请直接回复规则内容，如果没有找到相关规则，请回复"没有找到相关规则"。
+请根据以下描述查找相关规则：
+{description}
+
+请以json格式回复你觉得有用的相关规则。
         """
         retry_delay = 1
         for retry in range(max_retry):
             try:
                 res = llm.query(prompt, model_name="gpt-4o")
+                # breakpoint()
                 return res
             except Exception as e:
                 if retry < max_retry - 1:

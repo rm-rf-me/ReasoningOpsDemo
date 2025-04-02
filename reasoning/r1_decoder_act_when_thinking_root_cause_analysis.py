@@ -10,6 +10,7 @@ import json
 from tenacity import retry, stop_after_attempt, wait_exponential
 import httpx
 import traceback
+import re
 
 from .fake_api import get_instance, GraphAPI, DeviceAPI, BARuleAPI
 
@@ -21,7 +22,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-def exec_special_calc(action):
+def exec_special_calc(action, callback=None):
     """处理 API 调用"""
     try:
         # 解析 API 调用
@@ -40,7 +41,11 @@ def exec_special_calc(action):
         else:
             raise ValueError(f"Unknown API call: {action}")
 
-        return f"<result>\n{result}\n</result>\n\n"
+        res = f"<result>\n{result}\n</result>\n\n"
+
+        if callback is not None:
+            callback(res)
+        return res
     except Exception as e:
         return f"<result>\nError executing action: {action}, error: {e}\n</result>\n\n"
 
@@ -84,6 +89,10 @@ class StreamingDecoder:
         self.continue_thinking_prompt = '''You think as above response shows. Please continue your thinking and you 
         don't have to repeat what you have done or thought before. If you think the above thinking process is enough 
         to answer the user's request, please give your answer directly instead of thinking.'''
+
+    def set_output_callback(self, callback):
+        self.output_callback = callback
+        awt.set_callback_funcs(callback)
 
     def _should_retry(self, exception):
         """判断是否应该重试请求"""
@@ -339,7 +348,7 @@ def decode_sequence(sequence, output_callback=None):
     try:
         r1_decoder = StreamingDecoder()
         if output_callback:
-            r1_decoder.output_callback = output_callback
+            r1_decoder.set_output_callback(output_callback)
 
         sequence = decode_main_loop(sequence, r1_decoder, output_callback)
         logger.info("Sequence decoding completed")
@@ -391,41 +400,133 @@ def format_prompt(alarm_info: dict) -> str:
     return prompt
 
 
-def parse_result(result_text):
-    """解析结果文本"""
-    logger.debug(f"Parsing result text: {result_text}")
+def parse_result(sequence_text):
+    """解析推理结果"""
     try:
-        # 提取 <answer> 标签中的内容
-        answer_start = result_text.find("<answer>") + len("<answer>")
-        answer_end = result_text.find("</answer>")
-        if answer_start == -1 or answer_end == -1:
-            raise ValueError("Could not find answer tags in result")
-            
-        answer_text = result_text[answer_start:answer_end].strip()
-        logger.debug(f"Extracted answer text: {answer_text[:100]}...")
-
-        # 处理 ```json 标记
-        if answer_text.startswith("```json"):
-            answer_text = answer_text[7:]  # 移除 ```json
-        if answer_text.endswith("```"):
-            answer_text = answer_text[:-3]  # 移除结尾的 ```
-
-        answer_text = answer_text.strip()
-        logger.debug(f"Cleaned JSON text: {answer_text[:100]}...")
-
+        # 提取最后一对<answer>标签中的内容
+        answer_pattern = r'<answer>(.*?)</answer>'
+        answer_matches = list(re.finditer(answer_pattern, sequence_text, re.DOTALL))
+        
+        if not answer_matches:
+            logger.warning("No answer tag found in sequence")
+            return []
+        
+        # 获取最后一个匹配结果
+        last_match = answer_matches[-1]
+        answer_text = last_match.group(1).strip()
+        logger.debug(f"Extracted answer text from last <answer> tag: {answer_text[:100]}...")
+        
+        # 移除answer中可能存在的action和result标签
+        answer_text = re.sub(r'<action>.*?</action>', '', answer_text, flags=re.DOTALL)
+        answer_text = re.sub(r'<result>.*?</result>', '', answer_text, flags=re.DOTALL)
+        
+        # 尝试提取JSON部分 - 修改正则表达式以匹配带有反引号的代码块
+        # 支持多种格式: ```json, ````json, `json
+        json_pattern = r'[`]{3,4}(?:json)?\s*\n?(.*?)\n?[`]{3,4}'
+        json_match = re.search(json_pattern, answer_text, re.DOTALL)
+        
+        if json_match:
+            json_text = json_match.group(1).strip()
+            logger.debug(f"Found JSON in code block: {json_text[:100]}...")
+        else:
+            # 如果没有代码块，尝试直接解析整个答案
+            json_text = answer_text
+            logger.debug(f"No code block found, using raw text: {json_text[:100]}...")
+        
+        # 清理JSON文本
+        json_text = json_text.replace('None', 'null')  # 替换Python的None为JSON的null
+        json_text = json_text.replace('null', 'null')  # 替换小写null
+        json_text = json_text.replace('，', ',')  # 替换中文逗号
+        json_text = json_text.replace('：', ':')  # 替换中文冒号
+        json_text = json_text.replace('"', '"').replace('"', '"')  # 替换中文引号
+        
+        logger.debug(f"Cleaned JSON text: {json_text[:100]}...")
+        
         try:
-            # 尝试解析 JSON
-            result = json.loads(answer_text)
-            logger.debug(f"Successfully parsed JSON result: {result}")
+            # 尝试解析JSON
+            result = json.loads(json_text)
+            logger.info(f"Successfully parsed JSON result: {result}")
             return result
         except json.JSONDecodeError as e:
+            # 如果解析失败，记录错误并尝试修复常见问题
             logger.error(f"Failed to parse JSON: {e}")
-            logger.error(f"Problematic JSON text: {answer_text}")
-            raise
-
+            logger.error(f"Problematic JSON text: {json_text}")
+            
+            # 尝试更激进的修复方法 - 添加更多日志以便调试
+            try:
+                logger.debug("Attempting aggressive JSON repair...")
+                # 使用正则表达式提取每个对象的字段
+                fixed_json = []
+                object_pattern = r'{(.*?)}'
+                for obj_match in re.finditer(object_pattern, json_text, re.DOTALL):
+                    obj_text = obj_match.group(1).strip()
+                    fixed_obj = {}
+                    
+                    # 提取字段
+                    field_pattern = r'"([^"]+)"\s*:\s*([^,}]+)'
+                    for field_match in re.finditer(field_pattern, obj_text):
+                        key = field_match.group(1).strip()
+                        value = field_match.group(2).strip()
+                        logger.debug(f"Found field: {key} = {value}")
+                        
+                        # 处理值
+                        if value.lower() == 'null' or value.lower() == 'none':
+                            fixed_obj[key] = None
+                        elif value.startswith('"') and value.endswith('"'):
+                            fixed_obj[key] = value[1:-1]
+                        elif value.lower() == 'true':
+                            fixed_obj[key] = True
+                        elif value.lower() == 'false':
+                            fixed_obj[key] = False
+                        else:
+                            try:
+                                fixed_obj[key] = int(value)
+                            except ValueError:
+                                try:
+                                    fixed_obj[key] = float(value)
+                                except ValueError:
+                                    fixed_obj[key] = value
+                    
+                    if fixed_obj:
+                        fixed_json.append(fixed_obj)
+                
+                if fixed_json:
+                    logger.info(f"Successfully fixed JSON: {fixed_json}")
+                    return fixed_json
+                else:
+                    logger.warning("Could not extract any valid JSON objects")
+            except Exception as fix_error:
+                logger.error(f"Failed to fix JSON: {fix_error}")
+            
+            # 如果所有修复尝试都失败，尝试最后的手动解析
+            try:
+                logger.debug("Attempting manual JSON parsing as last resort...")
+                # 检查是否包含"未来收敛"或"历史收敛"文本
+                if "未来收敛" in json_text:
+                    logger.info("Detected '未来收敛' in text, creating manual result")
+                    return [{
+                        "convergence_type": "未来收敛",
+                        "related_alarm_id": None,
+                        "reasoning": "根据文本内容手动解析",
+                        "conclusion": "未来相关告警可收敛至当前告警"
+                    }]
+                elif "历史收敛" in json_text:
+                    logger.info("Detected '历史收敛' in text, creating manual result")
+                    return [{
+                        "convergence_type": "历史收敛",
+                        "related_alarm_id": None,
+                        "reasoning": "根据文本内容手动解析",
+                        "conclusion": "当前告警可收敛至历史告警"
+                    }]
+            except Exception as manual_error:
+                logger.error(f"Manual parsing failed: {manual_error}")
+            
+            # 如果所有尝试都失败，返回空列表
+            return []
+            
     except Exception as e:
         logger.error(f"Error parsing result: {e}", exc_info=True)
-        raise
+        return []
 
 
 def process_alarm(alarm_info, output_callback=None):

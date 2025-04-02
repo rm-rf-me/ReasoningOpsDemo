@@ -120,7 +120,8 @@ body {
 
 /* 卡片样式 */
 .el-card {
-    height: calc(100vh - 104px);
+    height: auto !important;
+    max-height: none !important;
     display: flex;
     flex-direction: column;
     overflow: hidden;  /* 确保卡片不溢出 */
@@ -581,17 +582,91 @@ button {
     padding: 10px;
 }
 
-/* 推理卡片样式 */
+/* 推理卡片样式优化 */
 .reasoning-card {
-    margin-bottom: 0 !important;
-    height: auto !important;  /* 让卡片高度自适应内容 */
+    margin-bottom: 12px !important;
+    border-radius: 4px !important;
+    overflow: hidden;
+    height: auto !important; /* 确保高度自适应内容 */
 }
 
-.step-content {
-    font-size: 14px;
-    line-height: 1.6;
+.reasoning-card .el-card__header {
+    padding: 8px 12px !important; /* 减小头部内边距 */
+    font-weight: 500;
+    line-height: 1.4 !important; /* 控制行高 */
+    min-height: auto !important; /* 确保最小高度自适应 */
+}
+
+.reasoning-card.think {
+    border-left: 3px solid #E6A23C;
+    background-color: #fdf6ec;
+}
+
+.reasoning-card.action {
+    border-left: 3px solid #409EFF;
+    background-color: #ecf5ff;
+}
+
+.reasoning-card.result {
+    border-left: 3px solid #67C23A;
+    background-color: #f0f9eb;
+}
+
+.reasoning-card.conclusion {
+    border-left: 3px solid #909399;
+    background-color: #f4f4f5;
+}
+
+.reasoning-card.think .el-card__header {
+    background-color: rgba(230, 162, 60, 0.1);
+}
+
+.reasoning-card.action .el-card__header {
+    background-color: rgba(64, 158, 255, 0.1);
+}
+
+.reasoning-card.result .el-card__header {
+    background-color: rgba(103, 194, 58, 0.1);
+}
+
+.reasoning-card.conclusion .el-card__header {
+    background-color: rgba(144, 147, 153, 0.1);
+}
+
+/* API调用高亮 */
+.api-call {
+    color: #409EFF;
+    font-weight: bold;
+}
+
+.api-param {
+    color: #67C23A;
+}
+
+/* JSON代码格式化 */
+.json-code {
+    background-color: #f8f8f8;
+    border-radius: 3px;
+    padding: 10px;
+    margin: 5px 0;
+    font-family: monospace;
+    white-space: pre-wrap;
+    font-size: 12px;
+    line-height: 1.4;
+    overflow-x: auto;
+    max-height: 300px; /* 限制非常长的JSON的高度 */
+    overflow-y: auto; /* 允许垂直滚动 */
+}
+
+/* 卡片内容样式 */
+.card-content {
+    padding: 10px 12px !important; /* 减小内容区域内边距 */
+    font-size: 13px !important; /* 稍微减小字体大小 */
+    line-height: 1.5 !important; /* 控制行高 */
     white-space: pre-wrap;
     word-break: break-word;
+    max-height: none !important; /* 移除最大高度限制 */
+    overflow: visible !important; /* 确保内容不被截断 */
 }
 
 /* 清除按钮样式 */
@@ -1048,123 +1123,106 @@ button {
     font-family: monospace;
 }
 
-/* 推理面板样式 */
+/* 推理面板样式优化 */
 .reasoning-panel {
-    height: calc(100vh - 104px);
-    display: flex;
-    flex-direction: column;
+    height: calc(100vh - 104px) !important; /* 固定高度占满屏幕 */
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important; /* 防止整体溢出 */
 }
 
-.reasoning-panel > .el-card__body {
+.reasoning-panel .el-card__body {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+}
+
+/* 当前告警信息样式优化 */
+.current-alarm-info {
+    padding: 12px 16px !important;
+    background-color: #f5f7fa;
+    border-bottom: 1px solid #e6e6e6;
+    margin-bottom: 10px;
+}
+
+.current-alarm-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.alarm-id {
+    margin-left: 8px;
+    font-weight: 600;
+    color: #409EFF;
+    font-size: 14px;
+    background-color: rgba(64, 158, 255, 0.1);
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.alarm-content {
+    padding: 0 4px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #606266;
+    word-break: break-word;
+}
+
+/* 推理内容区域 - 可滚动 */
+.reasoning-content {
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: hidden;  /* 防止内容溢出 */
-    padding: 10px;  /* 减小内边距 */
+    overflow: hidden;
 }
 
-/* 当前告警信息样式 */
-.current-alarm-info {
-    flex-shrink: 0;  /* 防止被压缩 */
-    margin-bottom: 12px;
-}
-
-/* 推理内容区域布局 */
-.reasoning-content {
-    flex: 1;  /* 占据剩余空间 */
-    display: flex;
-    flex-direction: column;
-    min-height: 0;  /* 关键：允许内容区域收缩 */
-}
-
-/* 推理卡片区域 */
 .reasoning-cards {
     flex: 1;
     overflow-y: auto;
-    margin-bottom: 12px;
-    padding-right: 4px;
+    padding: 0 16px;
+    margin-bottom: 10px;
 }
 
-/* 输入框区域优化 */
+/* 输入区域固定在底部 */
 .reasoning-input {
-    flex-shrink: 0;
-    margin-top: auto;
-    padding: 10px;  /* 减小内边距 */
-    background: #fff;
-    border-radius: 4px;
-    border: 1px solid #EBEEF5;
+    padding: 10px 16px;
+    background-color: #fff;
+    border-top: 1px solid #e6e6e6;
     display: flex;
-    gap: 8px;  /* 减小间距 */
-    align-items: flex-end;
+    align-items: center;
+    gap: 10px;
 }
 
-.reasoning-input .el-textarea {
+.reasoning-input .el-input {
     flex: 1;
-    margin-bottom: 0;
 }
 
-.reasoning-input .el-textarea__inner {
-    resize: none;
-    font-size: 12px;  /* 减小字体 */
-    min-height: 32px !important;
-    line-height: 1.4;
-    padding: 5px 8px;  /* 减小内边距 */
-}
-
-/* 响应式调整 */
-@media (max-width: 1200px) {
-    .reasoning-input .el-textarea__inner::placeholder {
-        font-size: 11px;  /* 窄屏下减小占位符字体 */
-    }
-    
-    .reasoning-input .el-button {
-        padding: 8px;  /* 减小按钮内边距 */
-    }
-    
-    .reasoning-input .el-button span {
-        display: none;  /* 隐藏按钮文字，只显示图标 */
-    }
-}
-
-/* 美化滚动条 */
-.reasoning-cards::-webkit-scrollbar {
-    width: 6px;
-}
-
-.reasoning-cards::-webkit-scrollbar-thumb {
-    background: #E4E7ED;
-    border-radius: 3px;
-}
-
-.reasoning-cards::-webkit-scrollbar-track {
-    background: #F5F7FA;
-}
-
-/* 用户消息卡片样式 */
-.reasoning-card.user {
-    border-left: 3px solid #67C23A;  /* 用户消息使用绿色 */
-    background-color: #f0f9eb;  /* 浅绿色背景 */
-}
-
-.reasoning-card.assistant {
-    border-left: 3px solid #409EFF;  /* 助手消息使用蓝色 */
-    background-color: #ecf5ff;  /* 浅蓝色背景 */
-}
-
-/* 消息卡片通用样式优化 */
+/* 推理卡片样式优化 */
 .reasoning-card {
-    margin-bottom: 8px !important;
+    margin-bottom: 12px !important;
+    border-radius: 4px !important;
+    overflow: hidden;
+    height: auto !important; /* 确保高度自适应内容 */
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1) !important;
 }
 
 .reasoning-card .el-card__header {
-    padding: 8px 12px;  /* 减小头部内边距 */
-    border-bottom: 1px solid rgba(0,0,0,0.05);  /* 更柔和的分隔线 */
+    padding: 8px 12px !important;
+    font-weight: 500;
+    line-height: 1.4 !important;
+    min-height: auto !important;
 }
 
-.reasoning-card .card-content {
-    padding: 8px 12px;  /* 减小内容区域内边距 */
-    font-size: 13px;
-    line-height: 1.5;
+.card-content {
+    padding: 10px 12px !important;
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow: visible !important;
 }
 
 /* 调整图标样式 */
