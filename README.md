@@ -1,24 +1,151 @@
-# Reasoning demo for wanguo 
+# 智能运维系统 - 告警收敛分析平台
 
-## Usage
+## 项目介绍
 
-```bash
-pip install -r requirements.txt
+这是一个基于大模型推理的智能运维系统，主要用于处理和分析数据中心暖通系统的告警信息，实现告警之间的收敛关系识别。系统利用"思考时行动"(Act-When-Thinking)的推理框架，允许大模型在分析过程中调用各种API收集信息，从而做出更准确的判断。
+
+## 系统功能
+
+- **告警管理**：加载、显示和筛选告警数据
+- **告警收敛分析**：识别告警间的关联性，支持历史收敛和未来收敛
+- **交互式推理**：大模型在推理过程中可实时调用API获取额外信息
+- **流式输出**：实时展示推理过程和结果
+- **辅助信息编辑**：支持用户提供BA规则、设备信息等辅助信息以提高推理准确性
+
+## 系统架构
+
+### 前端
+
+- **技术栈**：Vue.js + Element UI + Socket.IO
+- **主要功能**：
+  - 告警列表展示与筛选
+  - 推理过程实时展示
+  - 告警收敛关系可视化
+  - 辅助信息编辑
+
+### 后端
+
+- **技术栈**：Flask + Flask-SocketIO + Python
+- **主要组件**：
+  - `AlarmReasoningEnv`：告警处理环境，管理告警状态
+  - `ActWhenThinking`：实现"思考时行动"的推理框架
+  - 模拟API集：`GraphAPI`、`DeviceAPI`、`BARuleAPI`
+
+### 推理引擎
+
+- **核心理念**：思考时行动（Act-When-Thinking）
+- **推理流程**：
+  1. 加载当前告警和历史未收敛告警
+  2. 大模型开始分析，可随时调用API获取信息
+  3. 根据收集到的信息判断告警间的关系
+  4. 生成收敛结论（历史收敛/未来收敛）
+
+## 部署指南
+
+### 环境要求
+
+- Python 3.8+
+- Node.js 12+ (用于开发)
+
+### 安装步骤
+
+1. 克隆代码库
+   ```bash
+   git clone https://github.com/yourusername/ReasoningDemo.git
+   cd ReasoningDemo
+   ```
+
+2. 安装Python依赖
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. 启动应用
+   ```bash
+   python web_demo/app.py
+   ```
+
+4. 访问系统
+   在浏览器中打开 `http://localhost:5000`
+
+## 使用指南
+
+### 告警处理流程
+
+1. 系统启动后会自动加载告警数据
+2. 点击"处理下一条告警"按钮选择要处理的告警
+3. 点击"AI辅助推理"按钮对当前告警进行分析
+4. 点击"编辑辅助信息"可以提供额外信息辅助推理
+5. 系统将实时显示推理过程和结果
+6. 收敛结果将自动更新到告警列表中
+
+### 推理结果解读
+
+系统支持以下收敛类型：
+- **历史收敛**：当前告警可以归类到之前发生的告警中
+- **未来收敛**：当前告警会导致未来产生的某些告警，这些告警应归类到当前告警中
+- **未知**：无法确定收敛关系
+
+### 辅助信息功能
+
+用户可以通过"编辑辅助信息"弹窗提供以下额外信息：
+- **BA规则**：选择适用的建筑自动化规则
+- **设备信息**：提供相关设备的运行参数、状态等信息
+- **拓扑信息**：提供设备之间的拓扑关系
+- **专家经验**：输入专家的经验判断
+- **场景分类**：选择当前告警适用的场景类型
+
+## 系统原理
+
+### 告警收敛逻辑
+
+系统基于以下因素判断告警之间的收敛关系：
+1. 告警的时间先后顺序
+2. 设备之间的拓扑关系
+3. 运维规则（BA规则）
+4. 设备运行状态
+5. 历史案例经验
+
+### 推理交互机制
+
+系统使用特殊标记控制推理流程：
+- `<think>...</think>`: 模型思考过程
+- `<action>...</action>`: 执行API调用
+- `<result>...</result>`: API调用结果
+- `<answer>...</answer>`: 最终答案
+
+这种机制允许模型在推理过程中获取外部信息，显著提高了推理的准确性。
+
+## 开发者文档
+
+### 目录结构
+
+```
+ReasoningDemo/
+├── reasoning/                # 推理核心模块
+│   ├── act_when_thinking.py  # 思考时行动框架
+│   ├── fake_api.py           # 模拟API实现
+│   ├── prompts.py            # 提示词模板
+│   └── r1_decoder_*.py       # 推理解码器
+├── fm/                       # 模型接口
+│   └── models.py             # 大模型封装
+├── web_demo/                 # Web应用
+│   ├── app.py                # Flask应用
+│   ├── static/               # 静态资源
+│   └── templates/            # HTML模板
+└── AlarmReasoningEnv.py      # 告警处理环境
 ```
 
-Then create a .env file in the root directory with the following content, replacing the values with your own:
+### 扩展指南
 
-```
-DEEPSEEK_API_KEY=your_deepseek_api_key
-DEEPSEEK_BASE_URL=your_deepseek_base_url
-DEEPSEEK_R1_MODEL_NAME=your_deepseek_r1_model_name
+#### 添加新的API
 
-FM_API_URL=your_gpt_api_url
-FM_API_KEY=your_gpt_api_key
-```
+1. 在`reasoning/fake_api.py`中添加新的API类
+2. 在`prompts.py`中更新提示词以包含新API
+3. 在前端添加相应的辅助信息输入界面
 
-Finally, run the following command to start the demo:
+#### 优化推理模型
 
-```bash
-python run.py
-```
+1. 修改`prompts.py`中的提示词模板
+2. 调整`r1_decoder_act_when_thinking_root_cause_analysis.py`中的解码逻辑
+
