@@ -160,6 +160,11 @@ const app = new Vue({
             if (window.innerWidth < 768) {
                 this.isCollapse = true;
             }
+            
+            // 处理结果展示页面导航
+            if (index === '5') {
+                window.location.href = '/results';
+            }
         },
 
         handleFilter() {
