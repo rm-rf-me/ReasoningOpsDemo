@@ -134,6 +134,63 @@
             overflow-y: auto;
             height: calc(100vh - 60px);
         }
+        .reasoning-flow-container {
+            margin: 15px 0;
+        }
+        .reasoning-step {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #409eff;
+        }
+        .thinking-step {
+            background: #f0f9ff;
+            border-left-color: #409eff;
+        }
+        .action-step {
+            background: #fff7e6;
+            border-left-color: #e6a23c;
+        }
+        .result-step {
+            background: #f0f9ff;
+            border-left-color: #67c23a;
+        }
+        .step-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #303133;
+        }
+        .step-header i {
+            margin-right: 8px;
+            font-size: 16px;
+        }
+        .step-title {
+            font-size: 14px;
+        }
+        .step-content {
+            line-height: 1.6;
+            color: #606266;
+        }
+        .json-action {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .api-result {
+            background: #f0f9ff;
+            border: 1px solid #b3d8ff;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
@@ -342,6 +399,55 @@
                                                     <h4><i class="el-icon-cpu"></i> 推理过程</h4>
                                                     <div class="content-box thinking-content">
                                                         <div v-html="formatThinking(alarm.output.thinking)"></div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- 详细推理流程 -->
+                                                <div v-if="hasReasoningFlow(alarm)" class="detail-section">
+                                                    <h4><i class="el-icon-s-operation"></i> 详细推理流程</h4>
+                                                    <div class="reasoning-flow-container">
+                                                        <el-timeline>
+                                                            <el-timeline-item 
+                                                                v-for="(step, stepIndex) in getReasoningFlowSteps(alarm)" 
+                                                                :key="stepIndex"
+                                                                :icon="getStepIcon(getStepType(step))"
+                                                                :type="getStepType(step) === 'result' ? 'success' : (getStepType(step) === 'action' ? 'primary' : 'info')"
+                                                                :timestamp="'步骤 ' + (stepIndex + 1)">
+                                                                
+                                                                <!-- 思考步骤 -->
+                                                                <div v-if="step.thinking" class="reasoning-step thinking-step">
+                                                                    <div class="step-header">
+                                                                        <i class="el-icon-cpu"></i>
+                                                                        <span class="step-title">推理思考</span>
+                                                                    </div>
+                                                                    <div class="step-content">
+                                                                        <div v-html="formatReasoningThinking(step.thinking)"></div>
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                <!-- 动作步骤 -->
+                                                                <div v-if="step.action" class="reasoning-step action-step">
+                                                                    <div class="step-header">
+                                                                        <i class="el-icon-connection"></i>
+                                                                        <span class="step-title">API调用</span>
+                                                                    </div>
+                                                                    <div class="step-content">
+                                                                        <div v-html="formatReasoningAction(step.action)"></div>
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                <!-- 结果步骤 -->
+                                                                <div v-if="step.result" class="reasoning-step result-step">
+                                                                    <div class="step-header">
+                                                                        <i class="el-icon-data-analysis"></i>
+                                                                        <span class="step-title">执行结果</span>
+                                                                    </div>
+                                                                    <div class="step-content">
+                                                                        <div v-html="formatReasoningResult(step.result)"></div>
+                                                                    </div>
+                                                                </div>
+                                                            </el-timeline-item>
+                                                        </el-timeline>
                                                     </div>
                                                 </div>
                                                 

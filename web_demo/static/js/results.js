@@ -99,15 +99,59 @@ new Vue({
         },
         
         validateDataFormat(data) {
-            // 简单的数据格式验证
-            return data && 
-                   typeof data === 'object' &&
-                   data.meta_data && 
-                   typeof data.meta_data === 'object' &&
-                   data.summary && 
-                   typeof data.summary === 'object' &&
-                   data.events && 
-                   Array.isArray(data.events);
+            // 验证基本数据结构
+            if (!data || typeof data !== 'object') {
+                return false;
+            }
+            
+            // 验证meta_data
+            if (!data.meta_data || typeof data.meta_data !== 'object') {
+                return false;
+            }
+            
+            // 验证summary
+            if (!data.summary || typeof data.summary !== 'object') {
+                return false;
+            }
+            
+            // 验证events
+            if (!data.events || !Array.isArray(data.events)) {
+                return false;
+            }
+            
+            // 验证events中的alarms结构
+            for (const event of data.events) {
+                if (!event.alarms || !Array.isArray(event.alarms)) {
+                    return false;
+                }
+                
+                for (const alarm of event.alarms) {
+                    // 验证基本字段
+                    if (!alarm.alarm_id || !alarm.input || !alarm.output) {
+                        return false;
+                    }
+                    
+                    // 验证reasoning_flow结构（如果存在）
+                    if (alarm.output.reasoning_flow) {
+                        if (!Array.isArray(alarm.output.reasoning_flow)) {
+                            return false;
+                        }
+                        
+                        // 验证reasoning_flow中的步骤结构
+                        for (const step of alarm.output.reasoning_flow) {
+                            if (typeof step !== 'object') {
+                                return false;
+                            }
+                            // 至少应该包含thinking、action或result中的一个
+                            if (!step.thinking && !step.action && !step.result) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return true;
         },
         
         // 获取所有告警信息
@@ -169,6 +213,43 @@ new Vue({
         formatThinking(thinking) {
             if (!thinking) return '';
             return thinking.replace(/\n/g, '<br>');
+        },
+        
+        // 格式化reasoning_flow中的thinking内容
+        formatReasoningThinking(thinking) {
+            if (!thinking) return '';
+            // 处理英文thinking内容，添加适当的换行和格式化
+            return thinking
+                .replace(/\n/g, '<br>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>');
+        },
+        
+        // 格式化reasoning_flow中的action内容
+        formatReasoningAction(action) {
+            if (!action) return '';
+            // 提取JSON内容并格式化
+            const jsonMatch = action.match(/```json\n([\s\S]*?)\n```/);
+            if (jsonMatch) {
+                try {
+                    const jsonData = JSON.parse(jsonMatch[1]);
+                    return `<pre class="json-action">${JSON.stringify(jsonData, null, 2)}</pre>`;
+                } catch (e) {
+                    return action.replace(/\n/g, '<br>');
+                }
+            }
+            return action.replace(/\n/g, '<br>');
+        },
+        
+        // 格式化reasoning_flow中的result内容
+        formatReasoningResult(result) {
+            if (!result) return '';
+            // 处理API返回结果
+            if (result.includes('<result>') && result.includes('</result>')) {
+                const resultContent = result.replace(/<\/?result>/g, '');
+                return `<div class="api-result">${resultContent.replace(/\n/g, '<br>')}</div>`;
+            }
+            return result.replace(/\n/g, '<br>');
         },
         
         // 系统提示词格式化
@@ -361,6 +442,47 @@ new Vue({
             if (accuracy >= 80) return 'success';
             if (accuracy >= 60) return 'warning';
             return 'danger';
+        },
+        
+        // 检查告警是否有reasoning_flow数据
+        hasReasoningFlow(alarm) {
+            return alarm.output && alarm.output.reasoning_flow && Array.isArray(alarm.output.reasoning_flow) && alarm.output.reasoning_flow.length > 0;
+        },
+        
+        // 获取reasoning_flow步骤
+        getReasoningFlowSteps(alarm) {
+            if (!this.hasReasoningFlow(alarm)) return [];
+            return alarm.output.reasoning_flow;
+        },
+        
+        // 获取步骤类型
+        getStepType(step) {
+            if (step.thinking) return 'thinking';
+            if (step.action) return 'action';
+            if (step.result) return 'result';
+            return 'unknown';
+        },
+        
+        // 获取步骤图标
+        getStepIcon(stepType) {
+            const iconMap = {
+                'thinking': 'el-icon-cpu',
+                'action': 'el-icon-connection',
+                'result': 'el-icon-data-analysis',
+                'unknown': 'el-icon-info'
+            };
+            return iconMap[stepType] || 'el-icon-info';
+        },
+        
+        // 获取步骤标题
+        getStepTitle(stepType) {
+            const titleMap = {
+                'thinking': '推理思考',
+                'action': 'API调用',
+                'result': '执行结果',
+                'unknown': '未知步骤'
+            };
+            return titleMap[stepType] || '未知步骤';
         },
         
         // 导出功能

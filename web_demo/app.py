@@ -112,6 +112,21 @@ def results_page():
         
         # 将推理结果转换为事件格式
         for i, result in enumerate(reasoning_results):
+            # 构建reasoning_flow数据
+            reasoning_flow = []
+            if 'reasoning_steps' in result and result['reasoning_steps']:
+                # 处理新的reasoning_steps格式
+                for step in result['reasoning_steps']:
+                    flow_step = {}
+                    if 'thinking' in step:
+                        flow_step['thinking'] = step['thinking']
+                    if 'action' in step:
+                        flow_step['action'] = step['action']
+                    if 'result' in step:
+                        flow_step['result'] = step['result']
+                    if flow_step:
+                        reasoning_flow.append(flow_step)
+            
             event = {
                 'event_id': f'event_{i+1}',
                 'alarms': [{
@@ -126,7 +141,14 @@ def results_page():
                         'model_answer_id': result['result'].get('convergence_target', 'unknown'),
                         'thinking': result['reasoning_text'],
                         'res': result['reasoning_text'],
-                        'batch_alarm_ids': [result['alarm']['id']]
+                        'batch_alarm_ids': [result['alarm']['id']],
+                        'reasoning_flow': reasoning_flow,
+                        'model_answer': {
+                            'alarm_id': result['alarm']['id'],
+                            'thought': result['reasoning_text'],
+                            'converge_alarm_id': result['result'].get('convergence_target', result['alarm']['id']),
+                            'keep_alarm': True
+                        }
                     },
                     'comments': []
                 }]
