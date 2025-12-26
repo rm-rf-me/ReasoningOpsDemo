@@ -26,13 +26,9 @@
 ```bash
 # 1. 克隆项目
 git clone <repository-url>
-cd ReasoningDemo/evaluation_viewer
+cd ReasoningOpsDemo/
 
-# 2. 创建并激活 Python 虚拟环境
-python3 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# 3. 运行启动脚本（会自动安装依赖）
+# 2. 运行启动脚本（会自动安装依赖）
 ./start.sh
 ```
 
@@ -43,7 +39,9 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 
 启动成功后访问：**http://localhost:5000**
 
-### 方式二：需要构建前端
+点击右上角上传数据，然后分别选择包含所有excel源文件的路径和json结果文件路径，然后点击按钮开始分析。
+
+### 方式二：需要构建前端（一般不需要手动构建）
 
 如果 `frontend/dist` 目录不存在，需要先安装 Node.js：
 
@@ -67,13 +65,9 @@ sudo apt-get install -y nodejs
 ```bash
 # 1. 克隆项目
 git clone <repository-url>
-cd ReasoningDemo/evaluation_viewer
+cd ReasoningOpsDemo/
 
-# 2. 创建 Python 环境
-python3 -m venv venv
-source venv/bin/activate
-
-# 3. 启动（会自动构建前端）
+# 2. 启动（会自动构建前端）
 ./start.sh
 ```
 
