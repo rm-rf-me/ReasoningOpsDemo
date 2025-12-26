@@ -19,7 +19,40 @@
 
 ## 🚀 快速开始
 
-### 方式一：最简单（推荐新手）
+### Windows 用户
+
+#### 方式一：使用批处理脚本（推荐）
+
+```cmd
+# 1. 克隆项目
+git clone <repository-url>
+cd ReasoningOpsDemo
+
+# 2. 双击运行 start.bat
+# 或在命令行中运行：
+start.bat
+```
+
+#### 方式二：使用 PowerShell 脚本（功能更强）
+
+```powershell
+# 1. 克隆项目
+git clone <repository-url>
+cd ReasoningOpsDemo
+
+# 2. 运行 PowerShell 脚本
+.\start.ps1
+
+# 指定端口
+$env:PORT=8000; .\start.ps1
+```
+
+> ⚠️ **注意**：如果 PowerShell 提示"无法加载，因为在此系统上禁止运行脚本"，请以管理员身份运行：
+> ```powershell
+> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+> ```
+
+### macOS/Linux 用户
 
 如果项目已包含构建好的前端文件，只需三步：
 
@@ -75,6 +108,19 @@ cd ReasoningOpsDemo/
 
 ### 启动选项
 
+**Windows**:
+```cmd
+# 批处理脚本
+start.bat
+
+# PowerShell 脚本
+.\start.ps1
+
+# 指定端口（PowerShell）
+$env:PORT=8000; .\start.ps1
+```
+
+**macOS/Linux**:
 ```bash
 # 交互式启动（推荐新手，会询问Python环境）
 ./start.sh
@@ -125,6 +171,14 @@ PORT=8000 ./start.sh
 
 ### 端口被占用
 
+**Windows**:
+```cmd
+# 批处理脚本（需要修改 start.bat 中的 PORT 变量）
+# 或使用 PowerShell
+$env:PORT=8000; .\start.ps1
+```
+
+**macOS/Linux**:
 ```bash
 # 使用其他端口
 PORT=8000 ./start.sh
@@ -145,12 +199,34 @@ pip install pandas openpyxl
 
 ### 前端构建失败
 
+**Windows**:
+```cmd
+cd frontend
+rmdir /s /q node_modules
+del package-lock.json
+npm install
+npm run build
+```
+
+**macOS/Linux**:
 ```bash
 cd frontend
 rm -rf node_modules package-lock.json
 npm install
 npm run build
 ```
+
+### Windows 运行脚本问题
+
+**PowerShell 执行策略错误**：
+```powershell
+# 以管理员身份运行 PowerShell，然后执行：
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+**找不到脚本**：
+- 确保在项目根目录运行脚本
+- 使用完整路径：`C:\path\to\project\start.bat`
 
 ---
 
