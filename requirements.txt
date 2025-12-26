@@ -1,7 +1,0 @@
-flask
-flask-socketio
-python-dotenv
-eventlet  # 用于 WebSocket 支持
-openai  # 添加 OpenAI 依赖
-pandas
-tenacity
